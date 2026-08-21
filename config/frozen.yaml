@@ -1,0 +1,20 @@
+# This is a runtime read-only safety policy. It is versioned in source control
+# and may only be changed through a reviewed code/configuration change.
+policy_version: "2026-08-21"
+risk:
+  escalation_score: 0.60
+  severity_weight: 0.50
+  frequency_weight: 0.30
+  trend_weight: 0.20
+  severe_results:
+    - Aircraft Damage
+    - Injury
+    - Near Midair Collision
+  severe_events:
+    - Loss of Separation
+    - Loss of Control
+    - Engine Shutdown
+clustering:
+  min_cluster_size: 5
+  min_samples: 3
+  seed: 42

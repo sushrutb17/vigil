@@ -1,0 +1,22 @@
+.DS_Store
+.env
+.venv/
+vigil.egg-info/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Dataset artifacts: never commit raw or locked holdout data.
+data/raw/
+data/holdout/
+data/cache/
+
+# Runtime and evaluation output.
+eval/runs/
+artifacts/
+*.log
+
+# Local coding-harness instructions are intentionally not part of the public repo.
+AGENTS.md
+CLAUDE.md

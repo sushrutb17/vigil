@@ -1,0 +1,6 @@
+# Verified against Google AI for Developers on 2026-08-21.
+# Flash is used for every agent path. The Brief Writer can be changed to an
+# approved Pro model only after validating its ID in the official model docs.
+flash: gemini-3.7-flash
+brief_writer: gemini-3.7-flash
+embedding: gemini-embedding-2
