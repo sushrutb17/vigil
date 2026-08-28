@@ -61,6 +61,36 @@ make it real (real data), make it live (real GCP), not "build more." See
 
 ---
 
+## 2026-08-28 (Fri evening, cont'd) — Priority order + a real constraint found
+
+**Operating constraint discovered tonight:** the Claude session's `device_bash` access
+to this Mac runs in a sandboxed Linux VM with **no network access** and a **broken
+`.venv`** (it's a macOS-native venv; the Linux VM can't resolve the python symlink
+inside it). Practical effect: anything needing the internet (HF dataset download, a
+live Gemini API call, `gcloud`/GitHub auth) has to be run **by you, in your own
+terminal on the Mac** — Claude can prep the exact command and review the output/files
+afterward, but can't execute network calls against this repo's real `.venv` directly.
+(Claude *can* run code with network access in its own separate cloud workspace, but
+that's not this repo's environment, and large files — the ~51MB train split — exceed
+what can be handed back automatically.)
+
+**Agreed priority order for the remaining 3 days** (repo-public push deliberately
+last):
+
+1. GCP budget alert ($50) — console, quick.
+2. Firestore database instance (Native mode) — console, quick.
+3. Real data download — run `make download` (`uv run python -m data.download`) in
+   your own terminal; needs network + the real `.venv`.
+4. Live Gemini credentials — get an API key from Google AI Studio, put it in a local
+   `.env` (already gitignored), run one real `LlmAgent` call to confirm
+   `gemini-3.7-flash` / `gemini-embedding-2` still resolve.
+5. `infra/deploy.sh` → Cloud Run (batch job + UI service).
+6. Re-run the pipeline against real data, live; capture video evidence.
+7. Push the repo to a public GitHub remote — **last**, per explicit instruction, so
+   nothing half-broken sits in public view while steps 1–6 are still moving.
+
+---
+
 <!-- Add a new dated section above this line each time we make a decision, ship a
      feature, or change status. Keep entries short: what changed, what's verified,
      what's still open. -->
