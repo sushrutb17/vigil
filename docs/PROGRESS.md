@@ -922,6 +922,32 @@ trigger; DEGRADED demo path; Phase 5 self-improvement loop (zero code yet, and
 per explicit user directive it is NOT to be cut from scope); video; Devpost
 submission; public GitHub push (deliberately last).
 
+## 2026-08-29 (Sat, cont'd 15) — Corrected artifact deployed; hosted human gate proven against Firestore
+
+Redeployed only the public UI service (not the full deploy script or batch job)
+from the clean `main` checkout after 26/26 tests and ruff passed. Cloud Run built
+revision `vigil-ui-00003-rvl`, routed 100% of traffic to it, retained the
+least-privilege `vigil-ui-run` service account and
+`GOOGLE_CLOUD_PROJECT=vigil-hackathon-506218`, and returned HTTP 200 at
+https://vigil-ui-715230861973.us-central1.run.app.
+
+Verified the actual rendered Streamlit page in a real browser rather than
+stopping at the health response: 23 clusters, 4 escalated, 816 reports, source
+label `real ASRS slice · live Gemini agents`, with the corrected fully cited
+brief visible. Then exercised the terminal human gate on two distinct clusters
+so the results could not overwrite one another:
+
+- approved `cluster-3b7525506162` (Unmanned Aircraft System (Drone) Airspace
+  Conflicts at Low Altitudes);
+- rejected `cluster-09f38566aef2` (Mid-Air Traffic Conflicts and Near Midair
+  Collisions).
+
+Direct Firestore REST reads—not Streamlit session state—confirmed `approved`
+and `rejected` in the corresponding `clusters/` documents and a complete
+10-report negative example at `rejections/cluster-09f38566aef2`. This closes
+the last unverified part of the human-approval story. Next critical-path item:
+create and verify the weekly Cloud Scheduler trigger for `vigil-batch`.
+
 <!-- Add a new dated section above this line each time we make a decision, ship a
      feature, or change status. Keep entries short: what changed, what's verified,
      what's still open. -->
