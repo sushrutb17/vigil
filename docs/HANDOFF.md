@@ -18,6 +18,76 @@ Entry format:
 
 ---
 
+## 2026-08-29 ~18:00 ET — Claude Code (T1-02 ACN evidence drill-down)
+- Last commit: `0660daa` Implement T1-02: ACN evidence drill-down
+- Finished:
+  - **T1-02 done** per `docs/TIER1_ENHANCEMENTS_SPEC.md` section 7 (status
+    tables updated there — in the `vigil-docs` `docs-collateral` worktree,
+    commits `95b18ed`/`79d4d06` — and in `docs/PHASES.md` Phase 8 here).
+  - `agents.critic.extract_cited_acns`: same `ACN_CITATION` grammar as the
+    final gate, case-insensitive, first-occurrence order, deduplicated.
+  - `pipeline.run_batch.build_cluster_evidence`: one evidence record per
+    cluster member plus every precedent ACN the brief actually cites,
+    tagged `role: "member"|"precedent"`, sorted members then sorted
+    precedents. Raises `ValueError` naming the cluster and ACN when a
+    citation can't resolve to a normalized report in this run — wired into
+    `build_artifact_payload` so a bad citation fails artifact construction,
+    never a blank UI panel.
+  - `pipeline.store.put_cluster_evidence` (Memory + Firestore, `merge=True`):
+    stores only the resolved ACN list on the cluster document, not narrative
+    text — that still lives once under `reports/{acn}`.
+  - `ui/streamlit_app.py`: the old comma-separated "Source ACNs" list is
+    gone, replaced by an evidence selectbox (cited ACNs first via a stable
+    sort; precedent entries labeled "Precedent evidence" vs "Cluster
+    member"). `_render_evidence_panel` is now shared between this and the
+    T1-01 singleton panel instead of two copies of the same rendering code.
+  - 12 new tests in `tests/test_evidence.py` covering every section-7.3
+    bullet (citation extraction, member/precedent roles, the unresolved-ACN
+    failure, the 500/501-char normalize-before-cap boundary, deterministic
+    ordering under shuffled input, artifact-v2 and legacy-list round-trips,
+    and two `AppTest` smoke tests). Full suite **80/80**, ruff clean.
+  - Verified live (no credentials needed): `python -m pipeline.run_batch
+    --demo --output <path>` produces real per-cluster `evidence` arrays; a
+    headless `AppTest` run against the real committed
+    `artifacts/demo_run.json` (still legacy schema v1) confirms the evidence
+    selector degrades to simply absent rather than crashing when a cluster
+    entry has no `evidence` field.
+  - Also found and fixed in passing: the previous T1-01 session had left
+    `vigil-docs`' copy of `docs/TIER1_ENHANCEMENTS_SPEC.md` with an
+    uncommitted edit marking T1-01 Done. Committed it (`95b18ed`) before
+    adding the T1-02 row on top, per this file's own protocol about
+    uncommitted work found on arrival.
+- **Not done / honest gaps:**
+  - No `--live` run exercised the real precedent-citation path (needs
+    Gemini credentials this session doesn't have) — the precedent-role code
+    path is proven by the synthetic fixtures in `tests/test_evidence.py`
+    and by unit tests, not by a real Precedent-agent citation. This is
+    T1-02's section-7.4 acceptance criterion "at least one real cluster with
+    precedent evidence" — still open.
+  - `artifacts/demo_run.json` is unchanged: 79,053 bytes, still schema v1
+    (pre-dates T1-01's own live regeneration too). Regenerating it needs a
+    live run with credentials — same blocker as T1-01 left in the previous
+    handoff entry.
+  - `FirestoreStore.put_cluster_evidence` has no emulator/live test — not
+    required for T1-02 (section 12's mandatory-emulator clause names only
+    T1-03/T1-04), but worth running once credentials exist.
+- Next action: **T1-03 (edit-before-approve + required rejection reason)**
+  is next in `docs/TIER1_ENHANCEMENTS_SPEC.md` section 8 — it's the only
+  remaining Tier 1 item with real Firestore-atomicity requirements (section
+  12 makes the emulator run mandatory before marking it Done), so budget for
+  that step specifically rather than assuming a MemoryStore-only pass counts.
+- Watch out:
+  - The Tier 1 spec file lives only on the `docs-collateral` branch of the
+    `vigil-docs` worktree (`/Users/sush/Google All things Agent/vigil-docs`),
+    not on `main` — `docs/PHASES.md` on `main` is what CLAUDE.md's boot
+    protocol actually points a new session at; keep both in sync but trust
+    PHASES.md as the single status board.
+  - `ACN_CITATION`/`extract_cited_acns` only recognize 4+ digit numbers in
+    `[ACN ####...]` form — a 2-3 digit test fixture ACN silently never
+    matches the citation grammar at all.
+
+---
+
 ## 2026-08-30 ~00:30 ET — Claude Code (submission deliverables; measured the core stage and it failed)
 - Last commit: `af4d8d0` Put the clustering failure in the README and Devpost draft
 - Finished:
