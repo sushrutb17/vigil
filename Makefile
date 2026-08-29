@@ -1,4 +1,4 @@
-.PHONY: demo run-real run-live artifact ui test lint check download deploy require-key improve
+.PHONY: demo run-real run-live artifact ui test lint check download deploy require-key improve eval-offline
 
 # Load .env when it exists so the --live targets work without remembering to
 # `set -a; source .env; set +a` first. Forgetting it does not fail cleanly: ADK
@@ -42,6 +42,11 @@ artifact: require-key
 # pipeline. Reads the validation split; touches the locked holdout only at the
 # promotion decision, through eval/holdout_score.py. Writes eval/runs/ and, on
 # a promotion, config/prompts/ — never config/frozen.yaml.
+# Deterministic offline evals: clustering vs Events_Anomaly, Critic catch rate.
+# No model calls, no holdout access, no credentials needed.
+eval-offline:
+	uv run python -m eval.offline_report
+
 improve: require-key
 	uv run python -m eval.improve --sample-size 200 --holdout-size 100
 
