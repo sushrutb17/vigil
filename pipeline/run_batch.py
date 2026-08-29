@@ -96,6 +96,10 @@ def run_batch(
                 "status": status,
                 "noise": cluster.noise,
                 "name": assessment.name,
+                # ARCHITECTURE.md's clusters/ spec calls for the analyst output,
+                # which is the name AND the hazard statement. The statement is
+                # the part a reviewer actually reads first.
+                "hazard_statement": assessment.hazard_statement,
             },
         )
         assessments.append(assessment)
@@ -243,14 +247,17 @@ def main() -> None:
         }
     assessments = run_batch(reports, policy=policy, store=store, assess_cluster=assess_cluster)
     by_acn = {report.acn: report for report in reports}
-    payload = [
-        {
-            **asdict(assessment),
-            "brief": _brief_for(assessment, reports, by_acn, live_brief_kwargs),
-        }
-        for assessment in assessments
-        if not assessment.cluster_id.startswith("noise-")
-    ]
+    payload = []
+    for assessment in assessments:
+        if assessment.cluster_id.startswith("noise-"):
+            continue
+        brief = _brief_for(assessment, reports, by_acn, live_brief_kwargs)
+        # Briefs are drafted in this second pass, after triage_batch has written
+        # the cluster documents, so they need their own write. Without it the
+        # brief exists only in this process's stdout/--output JSON and never
+        # reaches the store the UI and the audit trail read from.
+        store.put_cluster_brief(assessment.cluster_id, brief)
+        payload.append({**asdict(assessment), "brief": brief})
     output = json.dumps(payload, indent=2, default=str)
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)

@@ -44,6 +44,8 @@ class TriageStore(Protocol):
 
     def set_cluster_status(self, cluster_id: str, status: str) -> None: ...
 
+    def put_cluster_brief(self, cluster_id: str, brief: str) -> None: ...
+
     def put_rejection(self, cluster_id: str, value: dict[str, Any]) -> None: ...
 
 
@@ -77,6 +79,9 @@ class MemoryStore:
         """Update just the status field (human gate decision), preserving the rest
         of whatever the batch job already wrote for this cluster."""
         self.clusters.setdefault(cluster_id, {})["status"] = status
+
+    def put_cluster_brief(self, cluster_id: str, brief: str) -> None:
+        self.clusters.setdefault(cluster_id, {})["brief"] = brief
 
     def put_rejection(self, cluster_id: str, value: dict[str, Any]) -> None:
         self.rejections[cluster_id] = value
@@ -122,6 +127,18 @@ class FirestoreStore:
         # merge=True: a status update from the human gate must not clobber the
         # analyst output/risk fields the batch job already wrote for this cluster.
         self._db.collection("clusters").document(cluster_id).set({"status": status}, merge=True)
+
+    def put_cluster_brief(self, cluster_id: str, brief: str) -> None:
+        # merge=True for the same reason as set_cluster_status: the brief is
+        # written in a second pass, after triage_batch already populated this
+        # document with the analyst output and risk score.
+        #
+        # Deliberately does NOT advance status to "briefed". The status field
+        # carries the new/escalated distinction that drives the UI's
+        # "NEW THIS RUN" badge and the escalation dedup ledger; overwriting it
+        # here would make every briefed cluster indistinguishable from one that
+        # was already escalated on a previous run.
+        self._db.collection("clusters").document(cluster_id).set({"brief": brief}, merge=True)
 
     def put_rejection(self, cluster_id: str, value: dict[str, Any]) -> None:
         self._db.collection("rejections").document(cluster_id).set(value, merge=False)

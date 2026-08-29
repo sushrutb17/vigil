@@ -30,6 +30,34 @@ def test_set_cluster_status_on_unknown_cluster_creates_a_record() -> None:
     assert store.clusters["c-new"]["status"] == "rejected"
 
 
+def test_put_cluster_brief_merges_into_the_existing_cluster_record() -> None:
+    """Briefs are written in a second pass, after triage_batch has already
+    created the cluster document. The write must merge, not overwrite, or the
+    analyst output and risk score from the first pass are lost."""
+    store = MemoryStore()
+    store.put_cluster("c1", {"name": "Fume events", "risk_score": 0.82, "status": "escalated"})
+
+    store.put_cluster_brief("c1", "## Draft\n[ACN 1000001] Crew reported fumes.")
+
+    assert store.clusters["c1"] == {
+        "name": "Fume events",
+        "risk_score": 0.82,
+        "status": "escalated",
+        "brief": "## Draft\n[ACN 1000001] Crew reported fumes.",
+    }
+
+
+def test_put_cluster_brief_leaves_status_untouched() -> None:
+    """status carries the new/escalated distinction behind the "NEW THIS RUN"
+    badge and the escalation dedup ledger. Drafting a brief must not advance it."""
+    store = MemoryStore()
+    store.put_cluster("c1", {"status": "new"})
+
+    store.put_cluster_brief("c1", "## Draft\n[ACN 1000001] ...")
+
+    assert store.clusters["c1"]["status"] == "new"
+
+
 def test_put_rejection_records_a_negative_example_keyed_by_cluster() -> None:
     store = MemoryStore()
     payload = {
