@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import random
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import asdict
@@ -11,6 +12,7 @@ from pathlib import Path
 
 from agents.critic import strip_uncited_claims
 from pipeline.cluster import cluster_reports
+from pipeline.ingest import load_parquet
 from pipeline.models import ASRSReport, ClusterAssessment, RiskScore
 from pipeline.risk import FrozenRiskPolicy, score_cluster
 from pipeline.store import MemoryStore, TriageStore
@@ -134,15 +136,42 @@ def demo_reports() -> list[ASRSReport]:
     ]
 
 
+def load_dataset_slice(path: Path, *, slice_size: int | None, seed: int) -> list[ASRSReport]:
+    """Load a real ASRS Parquet split and take a deterministic, seeded sample.
+
+    Delegates to ``pipeline.ingest.load_parquet``, which already refuses to read
+    the locked holdout copy — that guard is not duplicated here.
+    """
+    reports = load_parquet(path)
+    if slice_size is None or slice_size >= len(reports):
+        return reports
+    return random.Random(seed).sample(reports, slice_size)
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run VIGIL's deterministic local demo")
+    parser = argparse.ArgumentParser(description="Run VIGIL's batch triage pipeline")
     parser.add_argument("--demo", action="store_true", help="run the bundled six-report demo")
+    parser.add_argument(
+        "--dataset", type=Path, help="path to a real ASRS train/validation Parquet split"
+    )
+    parser.add_argument(
+        "--slice",
+        type=int,
+        default=None,
+        help="deterministic sample size drawn from --dataset (e.g. 5000)",
+    )
+    parser.add_argument("--seed", type=int, default=42, help="seed for --slice sampling")
     parser.add_argument("--output", type=Path, help="optional JSON output path")
     args = parser.parse_args()
-    if not args.demo:
-        parser.error("only --demo is available until a dataset path is supplied")
+    if bool(args.demo) == bool(args.dataset):
+        parser.error("pass exactly one of --demo or --dataset PATH")
     policy = FrozenRiskPolicy.from_path(Path("config/frozen.yaml"))
-    assessments = run_batch(demo_reports(), policy=policy, store=MemoryStore())
+    reports = (
+        demo_reports()
+        if args.demo
+        else load_dataset_slice(args.dataset, slice_size=args.slice, seed=args.seed)
+    )
+    assessments = run_batch(reports, policy=policy, store=MemoryStore())
     payload = [
         {**asdict(assessment), "brief": draft_brief(assessment)}
         for assessment in assessments

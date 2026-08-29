@@ -55,8 +55,8 @@ every feature below has to satisfy), `DATA.md` / `EVAL.md` / `DEMO_SCRIPT.md` /
 | Feature | Status | Note |
 |---|---|---|
 | Data models (`pipeline/models.py`) | ✅ Done | `ASRSReport`, `Cluster`, `RiskScore`, `ClusterAssessment` |
-| Ingest/normalize (`pipeline/ingest.py`) | 🔶 Partial | Handles DATA.md quirks (multi-value split, empty→None); unverified against real rows — needs Phase 2 data |
-| TF-IDF fallback + seeded HDBSCAN clustering (`pipeline/cluster.py`) | ✅ Done | No LLM calls, deterministic |
+| Ingest/normalize (`pipeline/ingest.py`) | ✅ Done | `normalize_rows` runs clean over all 38,655 real train rows + all 4,295 validation rows, zero errors — verified 2026-08-29 |
+| TF-IDF fallback + seeded HDBSCAN clustering (`pipeline/cluster.py`) | ✅ Done | No LLM calls, deterministic. Verified at real 5k-report scale 2026-08-29 after fixing two scale bugs — see PROGRESS.md: (1) dense TF-IDF array before HDBSCAN made a 5k run take 6+ min and never finish, fixed with seeded TruncatedSVD; (2) `allow_single_cluster=True` collapsed 58% of the batch into one megacluster at scale, fixed to only apply when `len(reports) < 2*min_cluster_size` (the demo fixture's regime) |
 | Frozen risk policy + scoring (`config/frozen.yaml`, `pipeline/risk.py`) | ✅ Done | Escalation threshold 0.60, immutable at runtime |
 | Deterministic cluster naming/hazard-statement stand-in (`run_batch._assess_cluster`) | ✅ Done | Explicit stand-in for the real Analyst agent (Phase 3) |
 | Citation gate / critic (`agents/critic.py`) | ✅ Done | `strip_uncited_claims`, preserves `DEGRADED` banner |
@@ -72,9 +72,9 @@ every feature below has to satisfy), `DATA.md` / `EVAL.md` / `DEMO_SCRIPT.md` /
 | Feature | Status | Note |
 |---|---|---|
 | `data/download.py` (HF snapshot download, lock `data/holdout/`) | ✅ Done | Run 2026-08-29 in user's own terminal (real `.venv`, real network). `data/raw/default/{train,validation,test}/0000.parquet` present (49M/5.5M/6.1M). `data/holdout/test.parquet` locked (chmod 0o444) on this run — first run had downloaded raw splits but errored/stopped before the lock step; re-run completed it cleanly. |
-| Real-data EDA vs DATA.md quirks (ZZZ rate, `;` splitting, Report 2 frequency) | ⬜ Not Started | 🚫 Blocked by: data download |
-| `run_batch.py` support for a real dataset path | ⬜ Not Started | CLI currently only accepts `--demo`; no `--dataset` flag or loader wiring exists yet |
-| Demo slice finalized (fixed seed, e.g. 5k train reports) | ⬜ Not Started | 🚫 Blocked by: EDA |
+| Real-data EDA vs DATA.md quirks (ZZZ rate, `;` splitting, Report 2 frequency) | ✅ Done | 2026-08-29: ZZZ rate 52.1% (20,148/38,655 — confirms quirk #1, cluster on type×phase×component only); Report 2 present on 23.6% of rows (9,111/38,655 — the dedup label rate); `;`-splitting and empty-string→None both confirmed against real cells; 0 duplicate ACNs, 0 rows missing acn/narrative in the full train split |
+| `run_batch.py` support for a real dataset path | ✅ Done | Added `--dataset`/`--slice`/`--seed` flags (mutually exclusive with `--demo`); reuses `pipeline.ingest.load_parquet`'s existing holdout-read guard rather than duplicating it. `make run-real` target added. |
+| Demo slice finalized (fixed seed, e.g. 5k train reports) | ✅ Done | 5,000 train reports, seed 42 (`make run-real`). Exercising this slice caught and fixed two real clustering scale bugs — see PROGRESS.md 2026-08-29 |
 
 ---
 

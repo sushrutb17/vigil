@@ -177,6 +177,66 @@ Docs touched: PHASES.md (new/annotated items + footer addendum), SUBMISSION.md
 scheduler shot, badge, download ending, twist line in the close), ARCHITECTURE.md
 (scheduler, badge, brief export). No code changed in this session-segment.
 
+## 2026-08-29 (Sat) — Real-data EDA, `--dataset` wiring, and two clustering scale bugs
+
+Ran the EDA pass (Phase 2, unblocked once data landed) and wired `run_batch.py` to
+accept a real dataset instead of only the 6-report demo fixture.
+
+**EDA findings** (full 38,655-row train split unless noted): ZZZ rate in
+`Place_Locale Reference` is 52.1% (20,148 rows) — confirms DATA.md quirk #1;
+airport-level trends really are unusable, type×phase×component is the only viable
+cluster facet. Report 2 present on 23.6% of rows (9,111/38,655) — that's the dedup
+label base rate to eval against later. `;`-splitting and empty-string→None both
+behave as `pipeline/ingest.py` assumes. 0 duplicate ACNs, 0 rows missing
+acn/narrative in the full train split. `normalize_rows` ran clean over all 38,655
+train + all 4,295 validation rows — first time `pipeline/ingest.py` has touched real
+data; moves it from "written, unverified" to actually verified.
+
+**`run_batch.py`:** added `--dataset PATH --slice N --seed N` (mutually exclusive
+with `--demo`), backed by `pipeline.ingest.load_parquet` — its existing holdout-read
+guard is reused, not duplicated, so an accidental `--dataset data/holdout/test.parquet`
+still fails hard. `make run-real` runs a 5,000-report seed-42 slice of train, which
+is now the finalized demo slice size (Phase 2's open decision).
+
+**Two real bugs found by actually running the 5k slice** (not found any other way —
+the 6-report fixture is too small to expose either):
+1. `cluster_reports` converted the full TF-IDF sparse matrix to a dense array before
+   HDBSCAN. At 5k documents with bigrams that matrix has ~84k columns; the dense
+   version is large enough that a run took 6+ minutes of CPU and never finished
+   (killed manually, never printed output). Fixed by adding seeded `TruncatedSVD`
+   (100 components, `random_state=42` — deterministic, no LLM call, so guardrail #1
+   still holds) between the vectorizer and HDBSCAN; small inputs below the
+   component count still densify directly, so the demo fixture's behavior is
+   unchanged. Full 5k run is now ~5 seconds.
+2. Once it ran, the result was one 2,879-member cluster (58% of the batch) and
+   nothing else — not what "surfaces emerging hazard patterns" is supposed to look
+   like. Root cause: `allow_single_cluster=True` was hardcoded in
+   `cluster_embedding_matrix`. That setting is *load-bearing* for the 6-report demo
+   fixture (verified directly: with it off, the fixture produces zero clusters, all
+   noise — HDBSCAN can't split 6 points into sub-clusters below the root), but at
+   real scale it lets HDBSCAN pick the whole-dataset root as "the" cluster instead
+   of splitting it. Fixed with a size-aware rule instead of a flat setting:
+   `allow_single_cluster = len(reports) < 2 * min_cluster_size` — below that count a
+   second qualifying cluster can't physically exist anyway, so allowing the
+   single-cluster root is the only way to detect a pattern at all; above it, real
+   sub-cluster splitting is what we want. Re-ran the 5k slice after the fix: 23
+   distinct clusters (e.g. "Horizontal Stabilizer Trim events during Climb",
+   "Hydraulic Main System events during Cruise", "GPS & Other Satellite Navigation
+   events during Cruise"), largest cluster 629 members, still ~5 seconds. All 14
+   tests still pass, ruff clean.
+
+**Scope call made this session:** Phase 5 (self-improvement loop) has zero code —
+not even a stub — and is offline/extractor-only, isolated from everything else that
+still needs to happen (live agent wiring, Cloud Run deploy, video, submission). With
+~2.5 days left, recommending it be the one exception to the "incorporate all rubric
+recommendations" directive above: cut it for this submission rather than build a
+loop that can only run 0-1 iterations in the time left. This is a recommendation,
+not something already acted on — flagged for the user to confirm or override.
+
+Next: live Gemini credential smoke test (Phase 3, needs the user's terminal —
+network), then wire the live agent graph into `run_batch.py` (the single biggest
+gap between the architecture doc and the code), then Cloud Run deploy.
+
 <!-- Add a new dated section above this line each time we make a decision, ship a
      feature, or change status. Keep entries short: what changed, what's verified,
      what's still open. -->
