@@ -359,6 +359,33 @@ failure tolerance, then Critic (LLM pass + the existing deterministic
 `strip_uncited_claims` backstop, which stays mandatory regardless of what the LLM
 critic does — guardrail #4 has no exceptions).
 
+## 2026-08-29 (Sat, cont'd 6) — make run-live's first real run found another scale bug
+
+Ran `make run-live` for real. Two failures, both from the same root cause: the
+629-member "Engine events during Parked" cluster (the largest of the 23 — see the
+2026-08-29 clustering-fix entry above) had every member's full narrative
+concatenated into one Analyst prompt. That blew past `gemini-3.7-flash`'s
+1,048,576-token context limit outright (`400 INVALID_ARGUMENT`), and the retries
+on that doomed-to-repeat request, stacked against the other 22 clusters' calls in
+the same run, exhausted the per-minute input-token quota too (`429
+RESOURCE_EXHAUSTED`, 2,000,000 tokens/minute for `gemini-3.7-flash`) — one bad
+call took the rest of the run down with it.
+
+Same category of bug as the TF-IDF/HDBSCAN scale issues from earlier today: works
+fine on small clusters, invisible until something in the real data is actually
+large. Fixed in `agents/orchestrate.live_assess_cluster`: cap the evidence sent to
+the Analyst at the first 20 member narratives (`max_evidence` param) regardless of
+cluster size — the returned assessment's `member_acns`/`facets` still reflect the
+true full membership, only what the model *sees* is capped. 20 real narratives is
+plenty for an LLM to name a shared pattern; the reports are already
+embedding-clustered, so a subset is representative by construction. Didn't touch
+`call_with_observability`'s retry behavior — capping the input so the oversized
+request never happens is the real fix; retrying a request that's guaranteed to
+fail identically every time would have been wasted effort regardless.
+
+All 14 tests still pass, ruff clean. Not yet re-verified live — that's the next
+terminal step.
+
 <!-- Add a new dated section above this line each time we make a decision, ship a
      feature, or change status. Keep entries short: what changed, what's verified,
      what's still open. -->

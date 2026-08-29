@@ -26,16 +26,29 @@ def live_assess_cluster(
     analyst: object,
     model: str,
     store: TriageStore,
+    max_evidence: int = 20,
 ) -> ClusterAssessment:
     """Name a cluster and write its hazard statement with a live Analyst call.
 
     Risk stays fully deterministic — ``pipeline.risk.score_cluster`` already
     computed it before this is called. The Analyst only supplies the name and
     prose hazard statement, per ARCHITECTURE.md's stage 3.
+
+    Only the first ``max_evidence`` member narratives go in the prompt,
+    regardless of cluster size. Found the hard way: a real 629-member cluster
+    sent every member's full narrative in one call and blew past the model's
+    1,048,576-token context limit, and the retries on that oversized request
+    (plus the other 22 calls in the same run) exhausted the per-minute input
+    token quota too. ``member_acns``/``facets`` on the returned assessment still
+    reflect the full membership — only what the model sees is capped.
     """
-    evidence = "\n".join(f"[ACN {report.acn}] {report.narrative}" for report in reports)
+    sample = reports[:max_evidence]
+    evidence = "\n".join(f"[ACN {report.acn}] {report.narrative}" for report in sample)
+    size_note = (
+        f"(showing {len(sample)} representative examples)" if len(reports) > len(sample) else ""
+    )
     message = (
-        f"Cluster of {len(reports)} public aviation safety reports:\n{evidence}\n\n"
+        f"Cluster of {len(reports)} public aviation safety reports {size_note}:\n{evidence}\n\n"
         "Name the shared hazard and write one bounded hazard statement citing "
         "supporting member ACNs."
     )
