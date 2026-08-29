@@ -29,6 +29,10 @@ run-live: require-key
 	uv run python -m pipeline.run_batch --dataset data/raw/default/train/0000.parquet --slice 5000 --live
 
 # Regenerates the snapshot the deployed Cloud Run UI serves. Needs GOOGLE_API_KEY.
+# This is a COMPLETE live run, identical to run-live except that it writes the
+# result to a file instead of stdout. Do not chain `run-live && artifact`: that
+# runs the whole pipeline twice, roughly 78 live Gemini calls instead of 39, for
+# one snapshot. Use this target on its own.
 artifact: require-key
 	uv run python -m pipeline.run_batch --dataset data/raw/default/train/0000.parquet \
 		--slice 5000 --live --output artifacts/demo_run.json > /dev/null

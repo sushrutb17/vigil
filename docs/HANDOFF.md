@@ -49,9 +49,12 @@ Entry format:
 - Next action:
   1. **Regenerate the artifact again** — `artifacts/demo_run.json` on disk is
      the pre-fix run and 3 of its 4 escalated briefs contain fabricated ACNs.
-     Do NOT deploy it. `make run-live && make artifact` (now works without
+     Do NOT deploy it. Run **`make artifact` on its own** (now works without
      sourcing .env), then re-verify with the snippet in PROGRESS.md before
-     committing and redeploying `vigil-ui`.
+     committing and redeploying `vigil-ui`. Do not chain
+     `make run-live && make artifact`: the two targets are the same complete
+     live run differing only in output destination, so chaining them burns
+     ~78 live Gemini calls instead of 39 for one snapshot.
   2. Click Approve/Reject on the hosted URL, confirm Firestore receives them.
   3. Then: Cloud Scheduler trigger, DEGRADED demo path, Phase 5 loop (zero
      code, and per explicit user directive NOT to be cut).
