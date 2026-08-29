@@ -24,7 +24,7 @@ evidence required before its status can be changed to Done.
 
 | ID | Enhancement | Current status | Existing foundation |
 |---|---|---|---|
-| T1-01 | Severe-but-unclustered queue | ⬜ Not Started | Noise reports already survive clustering internally; the frozen severe-result and severe-event vocabularies already exist |
+| T1-01 | Severe-but-unclustered queue | ✅ Done | Implemented 2026-08-30 on `main` (commit `a2d719f`): `pipeline.risk.severe_matches`, `pipeline.run_batch.find_severe_singletons`/`run_triage`/`build_artifact_payload`, artifact schema v2 with a legacy-list-compatible loader, and a Severe singletons UI queue. All section 6.3 tests plus a literal section-6.4 acceptance fixture pass (`tests/test_severe_singletons.py`, `tests/test_streamlit_app.py`); full suite 68/68, ruff clean. Not yet re-verified against a live `--live` run or a redeployed Cloud Run UI (needs network/credentials). See `docs/PHASES.md` Phase 8 for the mirrored status row and full note. |
 | T1-02 | ACN evidence drill-down | ⬜ Not Started | Normalized reports and full narratives already exist in memory and in Firestore `reports/`; briefs already carry bracketed ACN citations |
 | T1-03 | Edit-before-approve and required rejection reason | 🔶 Partial | Approve/Reject update status, rejections persist, and Markdown download exists; editing, reasons, atomic decision records, and post-edit citation validation do not |
 | T1-04 | Cross-run hazard identity and history | 🔶 Partial | Escalation-member Jaccard matching and the NEW THIS RUN flag exist; persistent hazard records, run observations, and history UI do not |
