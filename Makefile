@@ -1,4 +1,23 @@
-.PHONY: demo run-real run-live artifact ui test lint check download deploy
+.PHONY: demo run-real run-live artifact ui test lint check download deploy require-key
+
+# Load .env when it exists so the --live targets work without remembering to
+# `set -a; source .env; set +a` first. Forgetting it does not fail cleanly: ADK
+# raises inside the first Analyst call, once per cluster, and buries the one
+# useful line ("No API key was provided") under several hundred lines of async
+# traceback. .env is gitignored and holds a single unquoted KEY=value line.
+ifneq (,$(wildcard .env))
+include .env
+export
+endif
+
+# Fail in one line rather than mid-run, after the deterministic stages have
+# already spent time clustering 5,000 reports.
+require-key:
+	@if [ -z "$$GOOGLE_API_KEY" ]; then \
+		echo "GOOGLE_API_KEY is not set and no .env provides it."; \
+		echo "Put 'GOOGLE_API_KEY=...' in .env (gitignored), or export it, then retry."; \
+		exit 1; \
+	fi
 
 demo:
 	uv run python -m pipeline.run_batch --demo
@@ -6,11 +25,11 @@ demo:
 run-real:
 	uv run python -m pipeline.run_batch --dataset data/raw/default/train/0000.parquet --slice 5000
 
-run-live:
+run-live: require-key
 	uv run python -m pipeline.run_batch --dataset data/raw/default/train/0000.parquet --slice 5000 --live
 
 # Regenerates the snapshot the deployed Cloud Run UI serves. Needs GOOGLE_API_KEY.
-artifact:
+artifact: require-key
 	uv run python -m pipeline.run_batch --dataset data/raw/default/train/0000.parquet \
 		--slice 5000 --live --output artifacts/demo_run.json > /dev/null
 	@echo "Wrote artifacts/demo_run.json"
