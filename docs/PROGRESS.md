@@ -721,6 +721,70 @@ confusing "the fix didn't work" detour. Also, `deploy.sh` adds a new Secret
 Manager version on every run; when only application code changed, redeploy
 just the job rather than running the whole script.
 
+## 2026-08-29 (Sat, cont'd 12) — The bug the exit code could not show
+
+Redeployed the batch job so the `f2fe88a` prompt fix was actually in the image
+(`jobs deploy`, not just `jobs execute`), ran it, then read what execution
+`vigil-batch-dwpfp` wrote to Firestore over the REST API rather than trusting the
+"successfully completed" line.
+
+**The fix landed, half way.** `## Risk Assessment` came back with five cited
+bullets explaining each deterministic component, and the stray `# Cleaned Brief`
+H1 was gone. `## Precedent` was still an empty heading.
+
+The `agent_log` collection settled what was happening: `precedent` was *there*,
+spending 596–1,108 tokens per execution. It was succeeding and being deleted.
+There was also a purely deductive tell, before looking at the log at all — if
+the agent had raised, the fallback at `orchestrate.py:180` ("Precedent analysis
+unavailable this run. [ACN …]") would have fired, and it carries citations, so
+it would have survived the gate. We saw neither the agent's prose nor the
+fallback. Only one path produces that: success, then total deletion.
+
+Two separate causes, which is why the first fix only got half of it.
+
+**1. The demo fixture cannot produce a precedent.** `_precedent_candidates`
+excludes cluster members and requires a matching component. All six fixture
+reports share `component="Engine Control"` and all six are members of the one
+cluster, so the candidate list is *always* empty. The prompt then says
+"(none found in this batch)" and the only honest answer — "no comparable
+reports" — carries no ACN. We were paying a live Flash call per escalated
+cluster to ask a question with no possible answer, and deleting the reply.
+Now the call is skipped when there are no candidates and a deterministic cited
+line is used instead.
+
+This one is worth being precise about: the emptiness there is *semantically
+correct*. A cluster is not its own precedent. The tempting "fix" — letting
+`_precedent_candidates` include members — would manufacture a precedent out of
+the very reports the hazard is drawn from. Rejected.
+
+**2. The general defect.** `strip_uncited_claims` is line-based and always
+keeps headings (`critic.py:32`), so any section whose lines all lack citations
+survives as a heading with an empty body. Downstream that is byte-identical to
+a section whose agent never ran. The success path and the total-deletion path
+produce the same artifact — which is exactly why this stayed invisible across
+five live executions with a zero exit code every time. The existing per-section
+fallbacks could not catch it: they are chosen before assembly and only fire when
+a sub-agent *raised*. The new `_backfill_empty_sections` runs after the gate,
+the only point in the pipeline that can see what the gate actually removed, and
+restores a member-ACN-cited placeholder — so the repair passes the same gate it
+is repairing rather than smuggling an uncited claim in behind it. Guardrail #4
+is untouched; the gate still deletes everything uncited.
+
+A smaller consequence, caught while writing it: the DEGRADED banner keyed on
+`survived < 3`, counting survivors out of a hard-coded three. A deliberately
+skipped Precedent would have dropped that to 2 and stamped `DEGRADED` on a run
+in which every agent that was asked succeeded. Switched to counting failures
+against the number actually attempted.
+
+Both new tests were checked against the pre-fix source with `git stash` and do
+fail there — worth doing, because a test that asserts a section is non-empty is
+easy to write in a way that passes for the wrong reason. 23 tests, ruff clean.
+
+The transferable lesson is the same one from earlier today, sharpened: on this
+project the exit code carries almost no information. Every execution reported
+success while two of three parallel agents produced output that was always
+discarded. What can be trusted is the artifact that reached Firestore.
+
 <!-- Add a new dated section above this line each time we make a decision, ship a
      feature, or change status. Keep entries short: what changed, what's verified,
      what's still open. -->

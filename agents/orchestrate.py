@@ -8,7 +8,7 @@ never affected by this module. Kept out of ``pipeline/`` since it depends on
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 
 from agents import contracts
@@ -95,6 +95,37 @@ def _precedent_candidates(
     return candidates[:limit]
 
 
+def _backfill_empty_sections(brief: str, fallbacks: Mapping[str, str]) -> str:
+    """Restore a cited placeholder for any section the citation gate emptied.
+
+    ``strip_uncited_claims`` works line by line and always keeps headings, so a
+    section whose every line lacked a citation survives as a bare heading with no
+    body. That output is byte-identical to a section whose agent never ran, which
+    is how the Precedent section shipped empty through three live Cloud Run
+    executions without anything reporting an error — the agent succeeded, and the
+    gate silently deleted all of it.
+
+    The section-level fallbacks in ``live_draft_brief`` cannot cover this on their
+    own: they are chosen before assembly and only fire when a sub-agent *raised*.
+    This runs after the gate, so it is the only place that sees what the gate
+    actually removed. Replacements carry the cluster's member ACNs by
+    construction, so they pass the same gate they are repairing rather than
+    smuggling an uncited claim in behind it.
+    """
+    lines = brief.splitlines()
+    repaired: list[str] = []
+    for index, line in enumerate(lines):
+        repaired.append(line)
+        if line.strip() not in fallbacks:
+            continue
+        # A section is empty when the next nonblank line is another heading (or
+        # the document simply ends).
+        following = next((later.strip() for later in lines[index + 1 :] if later.strip()), "")
+        if not following or following.startswith("#"):
+            repaired.append(fallbacks[line.strip()])
+    return "\n".join(repaired)
+
+
 def live_draft_brief(
     assessment: ClusterAssessment,
     members: Sequence[ASRSReport],
@@ -147,9 +178,20 @@ def live_draft_brief(
     )
 
     with ThreadPoolExecutor(max_workers=3) as pool:
-        precedent_future = pool.submit(
-            _call_or_none,
-            lambda: run_llm_agent(precedent, message=precedent_message, model=model, store=store),
+        # With no candidates there is no question to ask: the prompt would say
+        # "(none found in this batch)" and the only honest answer is "no
+        # comparable reports", which carries no ACN and the gate deletes in full.
+        # Skipping the call states that deterministically and saves a live Flash
+        # call per escalated cluster.
+        precedent_future = (
+            pool.submit(
+                _call_or_none,
+                lambda: run_llm_agent(
+                    precedent, message=precedent_message, model=model, store=store
+                ),
+            )
+            if candidates
+            else None
         )
         risk_future = pool.submit(
             _call_or_none,
@@ -161,42 +203,55 @@ def live_draft_brief(
                 brief_writer, message=brief_writer_message, model=brief_writer_model, store=store
             ),
         )
-        precedent_text = precedent_future.result()
+        precedent_text = precedent_future.result() if precedent_future is not None else None
         risk_text = risk_future.result()
         brief_text = brief_future.result()
 
-    survived = sum(text is not None for text in (precedent_text, risk_text, brief_text))
-    if survived < 2:
+    # A deliberately skipped Precedent call is not a failure. Counting failures
+    # rather than survivors keeps that distinction: an absent precedent must not
+    # stamp DEGRADED on a run in which every agent that was asked succeeded.
+    attempted = 3 if candidates else 2
+    failures = sum(
+        (
+            bool(candidates) and precedent_text is None,
+            risk_text is None,
+            brief_text is None,
+        )
+    )
+    if failures > 1:
         raise CoordinatorFailure(
-            f"cluster {assessment.cluster_id}: only {survived}/3 coordinator sub-agents succeeded"
+            f"cluster {assessment.cluster_id}: only {attempted - failures}/{attempted} "
+            "coordinator sub-agents succeeded"
         )
 
+    # Keyed by heading so _backfill_empty_sections can reuse the same text after
+    # the gate runs. Every value carries the member ACNs, so each one survives the
+    # gate on its own.
+    fallbacks = {
+        "## Precedent": (
+            f"No comparable reports outside this cluster appear in this batch. {citations}"
+            if not candidates
+            else f"Precedent analysis unavailable this run. {citations}"
+        ),
+        "## Risk Assessment": (
+            f"Deterministic risk score {assessment.risk.total:.2f} (severity "
+            f"{assessment.risk.severity:.2f}, frequency {assessment.risk.frequency:.2f}, "
+            f"trend {assessment.risk.trend:.2f}). {citations}"
+        ),
+        "## Recommended Brief": f"Brief drafting unavailable this run. {citations}",
+    }
+
     sections = [f"# Draft: {assessment.name}"]
-    if survived < 3:
+    if failures:
         sections.append("DEGRADED")
     sections.append(f"## Hazard\n{assessment.hazard_statement} {citations}")
-    sections.append(
-        "## Precedent\n"
-        + (precedent_text or f"Precedent analysis unavailable this run. {citations}")
-    )
-    sections.append(
-        "## Risk Assessment\n"
-        + (
-            risk_text
-            or (
-                f"Deterministic risk score {assessment.risk.total:.2f} (severity "
-                f"{assessment.risk.severity:.2f}, frequency {assessment.risk.frequency:.2f}, "
-                f"trend {assessment.risk.trend:.2f}). {citations}"
-            )
-        )
-    )
-    sections.append(
-        "## Recommended Brief\n"
-        + (brief_text or f"Brief drafting unavailable this run. {citations}")
-    )
+    sections.append("## Precedent\n" + (precedent_text or fallbacks["## Precedent"]))
+    sections.append("## Risk Assessment\n" + (risk_text or fallbacks["## Risk Assessment"]))
+    sections.append("## Recommended Brief\n" + (brief_text or fallbacks["## Recommended Brief"]))
     draft = "\n\n".join(sections)
 
     critic_text = _call_or_none(
         lambda: run_llm_agent(critic, message=draft, model=model, store=store)
     )
-    return strip_uncited_claims(critic_text or draft).cleaned_brief
+    gated = strip_uncited_claims(critic_text or draft).cleaned_brief
+    return _backfill_empty_sections(gated, fallbacks)

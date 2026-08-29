@@ -18,6 +18,54 @@ Entry format:
 
 ---
 
+## 2026-08-29 ~18:15 ET — Claude Code (verified the prompt fix in the cloud; fixed the empty-section class of bug)
+- Last commit: see `git log -1` — "Never let a brief section render as a bare heading"
+- Finished:
+  - **Verified `f2fe88a` landed in production** by reading the brief execution
+    `vigil-batch-dwpfp` wrote to Firestore (REST API, read-only). `## Risk
+    Assessment` is now fully populated with cited bullets and the stray
+    `# Cleaned Brief` H1 is gone.
+  - **`## Precedent` was still empty — and the cause was not the prompt.** The
+    `agent_log` showed Precedent *succeeding*, spending 596–1,108 tokens a run.
+    Two separate causes, both fixed in `agents/orchestrate.py`:
+    1. On the `--demo` fixture, `_precedent_candidates` can never return
+       anything: all 6 reports share `component="Engine Control"` and all 6 are
+       cluster members, and the function excludes members. The only honest
+       answer carries no ACN, so the gate deleted it every time. The call is
+       now skipped when there are no candidates (deterministic cited line
+       instead) — one fewer live Flash call per escalated cluster.
+    2. The general defect: `strip_uncited_claims` is line-based and always
+       keeps headings, so **any** section whose lines all lack citations
+       survives as a bare heading — byte-identical to a section whose agent
+       never ran. The existing fallbacks only fire when a sub-agent *raised*,
+       so they could not catch it. New `_backfill_empty_sections` runs after
+       the gate and restores a member-ACN-cited placeholder.
+  - Failure accounting now counts failures rather than survivors, so a skipped
+    Precedent does not spuriously stamp the brief `DEGRADED`.
+  - 23 tests pass (was 21), ruff clean. Both new tests were confirmed to fail
+    against the pre-fix source via `git stash` — they are real guards.
+- Next action, in priority order:
+  1. **Regenerate `artifacts/demo_run.json`** (`make run-live` → `make artifact`
+     → commit → redeploy `vigil-ui`). Still the highest value per minute: it is
+     what a judge sees first. Doing it *now* captures both `f2fe88a` and this
+     fix in one pass; doing it earlier would have wasted ~23 Analyst calls.
+     The real 5k slice is also the first run that will produce genuine
+     Precedent content, since it has non-member reports sharing a component.
+  2. **Click Approve and Reject on the hosted URL**, confirm a `clusters/`
+     status change and a `rejections/` doc land in Firestore.
+  3. Then: Cloud Scheduler weekly trigger, DEGRADED demo path, Phase 5 loop
+     (zero code exists — and per an explicit user directive it is NOT to be
+     cut from scope).
+- Watch out:
+  - The batch job's image is one `jobs deploy` behind this fix. It needs a
+    redeploy before its next execution shows the repaired Precedent section.
+  - Don't "fix" the empty Precedent on the demo fixture by loosening
+    `_precedent_candidates` to include members — a cluster is not its own
+    precedent, and the emptiness there is semantically correct.
+  - Reading what actually reached Firestore is what caught both of these. The
+    job exit code was 0 and every agent reported success on all five
+    executions. Trust the stored artifact, not the exit status.
+
 ## 2026-08-29 ~17:30 ET — Claude Code (Phase 4 deploy: DONE, live on GCP)
 - Last commit: `f2fe88a` Make Precedent and Risk actually cite, so their output
   survives the gate
