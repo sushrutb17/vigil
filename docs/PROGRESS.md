@@ -386,6 +386,23 @@ fail identically every time would have been wasted effort regardless.
 All 14 tests still pass, ruff clean. Not yet re-verified live — that's the next
 terminal step.
 
+## 2026-08-29 (Sat, cont'd 7) — Live Analyst confirmed working on the full real slice
+
+Re-ran `make run-live` after the evidence cap. Clean end to end this time: all 23
+clusters got real, model-authored names and hazard statements — genuinely good
+prose ("uncommanded runaways," "asymmetry indications," proper synthesis across
+member narratives), not the deterministic template's "{component} events during
+{phase}" pattern. The 629-member cluster (the one that broke the previous run)
+processed without error and produced a coherent hazard statement grounded in its
+capped 20-narrative sample. Deterministic risk scores matched the pre-live run
+exactly for every cluster checked — confirms the Analyst only ever touches
+naming/prose, risk scoring is untouched, exactly as designed.
+
+This closes out live Analyst wiring. Next: Coordinator (Precedent ∥ Risk ∥ Brief
+Writer, with 2-of-3 failure tolerance → `DEGRADED`) and Critic (LLM pass + the
+mandatory deterministic `strip_uncited_claims` backstop) for the escalated
+clusters — the piece that actually produces the cited investigator brief.
+
 <!-- Add a new dated section above this line each time we make a decision, ship a
      feature, or change status. Keep entries short: what changed, what's verified,
      what's still open. -->
