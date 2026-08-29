@@ -13,7 +13,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
-from agents.critic import format_citations, strip_uncited_claims
+from agents.critic import extract_cited_acns, format_citations, strip_uncited_claims
 from pipeline.cluster import cluster_reports
 from pipeline.ingest import load_parquet
 from pipeline.models import (
@@ -170,6 +170,39 @@ def _build_evidence(report: ASRSReport) -> EvidenceRecord:
     )
 
 
+def build_cluster_evidence(
+    cluster_id: str,
+    assessment: ClusterAssessment,
+    brief: str,
+    by_acn: Mapping[str, ASRSReport],
+) -> list[JsonDict]:
+    """Evidence for every cluster member plus any cited precedent ACN outside it.
+
+    Deterministic order: member ACNs sorted, then cited non-members sorted
+    (T1-02, docs/TIER1_ENHANCEMENTS_SPEC.md 5.2, 7.1). Each record carries a
+    ``role`` of ``"member"`` or ``"precedent"`` so the UI can label precedent
+    evidence distinctly rather than presenting it as cluster membership.
+
+    Raises ``ValueError`` naming the cluster and ACN when the brief cites an
+    ACN this run has no normalized report for -- the UI must never render a
+    citation whose evidence is knowingly missing (5.1).
+    """
+    member_acns = set(assessment.member_acns)
+    precedent_acns = sorted(acn for acn in extract_cited_acns(brief) if acn not in member_acns)
+    records: list[JsonDict] = [
+        {"role": "member", **asdict(_build_evidence(by_acn[acn]))} for acn in sorted(member_acns)
+    ]
+    for acn in precedent_acns:
+        report = by_acn.get(acn)
+        if report is None:
+            raise ValueError(
+                f"cluster {cluster_id} brief cites ACN {acn}, which does not resolve to a "
+                "normalized report in this run -- cannot build its evidence record"
+            )
+        records.append({"role": "precedent", **asdict(_build_evidence(report))})
+    return records
+
+
 def find_severe_singletons(
     reports: Sequence[ASRSReport], policy: FrozenRiskPolicy
 ) -> list[SevereSingleton]:
@@ -221,6 +254,7 @@ def build_artifact_payload(
         run_id = f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}-{uuid4().hex[:6]}"
     if run_at is None:
         run_at = datetime.now(UTC).isoformat()
+    by_acn = {report.acn: report for report in reports}
     return {
         "schema_version": 2,
         "run": {
@@ -231,7 +265,13 @@ def build_artifact_payload(
             "reports_triaged": len(reports),
         },
         "clusters": [
-            {**asdict(assessment), "brief": briefs[assessment.cluster_id]}
+            {
+                **asdict(assessment),
+                "brief": briefs[assessment.cluster_id],
+                "evidence": build_cluster_evidence(
+                    assessment.cluster_id, assessment, briefs[assessment.cluster_id], by_acn
+                ),
+            }
             for assessment in assessments
         ],
         "severe_singletons": [asdict(singleton) for singleton in singletons],
@@ -414,6 +454,13 @@ def main() -> None:
         store.put_cluster_brief(assessment.cluster_id, brief)
         briefs[assessment.cluster_id] = brief
     artifact = build_artifact_payload(reports, assessments, briefs, singletons)
+    for cluster_entry in artifact["clusters"]:
+        # Only the ACN list goes to the store; narrative excerpts stay in the
+        # artifact/reports/{acn} documents so a cluster document never
+        # duplicates narrative text (T1-02, docs/TIER1_ENHANCEMENTS_SPEC.md 5.2).
+        store.put_cluster_evidence(
+            cluster_entry["cluster_id"], [item["acn"] for item in cluster_entry["evidence"]]
+        )
     output = json.dumps(artifact, indent=2, default=str)
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)

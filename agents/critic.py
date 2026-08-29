@@ -42,6 +42,23 @@ def format_citations(acns: Collection[str], *, limit: int = MAX_INLINE_CITATIONS
     return f"{shown} (+{remaining} more in this cluster)" if remaining > 0 else shown
 
 
+def extract_cited_acns(brief: str) -> tuple[str, ...]:
+    """Return every ACN cited in ``brief``, in first-occurrence order, deduplicated.
+
+    Uses the same citation grammar as the final gate (``ACN_CITATION``, case
+    insensitive), so a citation this misses is a citation the gate would also
+    fail to recognize. Used to build per-cluster evidence for cited precedent
+    ACNs outside the cluster's own membership (T1-02,
+    docs/TIER1_ENHANCEMENTS_SPEC.md section 7).
+    """
+    seen: dict[str, None] = {}
+    for citation in ACN_CITATION.findall(brief):
+        digits = _ACN_DIGITS.search(citation)
+        if digits:
+            seen.setdefault(digits.group(), None)
+    return tuple(seen)
+
+
 def strip_uncited_claims(brief: str, allowed_acns: Collection[str] | None = None) -> CriticResult:
     """Strip claims that lack a bracketed ACN citation, and citations that are fabricated.
 

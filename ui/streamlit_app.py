@@ -25,8 +25,9 @@ from typing import Any
 
 import streamlit as st
 
+from agents.critic import extract_cited_acns
 from pipeline.risk import FrozenRiskPolicy
-from pipeline.run_batch import demo_reports, draft_brief, run_triage
+from pipeline.run_batch import build_cluster_evidence, demo_reports, draft_brief, run_triage
 from pipeline.store import MemoryStore, TriageStore
 
 ARTIFACT_PATH = Path("artifacts/demo_run.json")
@@ -76,6 +77,10 @@ def _clusters_from_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]
             "members": tuple(entry["member_acns"]),
             "facets": entry["facets"],
             "brief": entry["brief"],
+            # Absent on artifacts written before T1-02 (legacy v1 lists and
+            # pre-evidence v2 objects alike) -- the evidence selector simply
+            # has nothing to show for those, rather than failing to load.
+            "evidence": entry.get("evidence", []),
         }
         for entry in entries
     ]
@@ -123,20 +128,26 @@ def _load_artifact() -> tuple[list[dict[str, Any]], list[dict[str, Any]], int, s
 
     policy = FrozenRiskPolicy.from_path(Path("config/frozen.yaml"))
     reports = demo_reports()
+    by_acn = {report.acn: report for report in reports}
     assessments, severe = run_triage(reports, policy=policy, store=MemoryStore())
-    clusters = [
-        {
-            "id": assessment.cluster_id,
-            "name": assessment.name,
-            "risk": assessment.risk.total,
-            "escalated": assessment.risk.escalated,
-            "new_this_run": assessment.newly_escalated,
-            "members": assessment.member_acns,
-            "facets": assessment.facets,
-            "brief": draft_brief(assessment),
-        }
-        for assessment in assessments
-    ]
+    clusters = []
+    for assessment in assessments:
+        brief = draft_brief(assessment)
+        clusters.append(
+            {
+                "id": assessment.cluster_id,
+                "name": assessment.name,
+                "risk": assessment.risk.total,
+                "escalated": assessment.risk.escalated,
+                "new_this_run": assessment.newly_escalated,
+                "members": assessment.member_acns,
+                "facets": assessment.facets,
+                "brief": brief,
+                "evidence": build_cluster_evidence(
+                    assessment.cluster_id, assessment, brief, by_acn
+                ),
+            }
+        )
     singletons = [
         {
             "acn": singleton.acn,
@@ -157,6 +168,58 @@ def _sorted_choices(clusters: list[dict[str, Any]]) -> dict[str, dict[str, Any]]
         f"{c['name']} · risk {c['risk']:.2f}": c
         for c in ordered
     }
+
+
+def _render_evidence_panel(evidence: dict[str, Any]) -> None:
+    """One evidence record's detail view -- narrative excerpt, date, flight
+    phase, component, anomaly labels, and result labels. Shared by the T1-02
+    cluster evidence drill-down and the T1-01 severe-singleton queue.
+
+    Missing optional metadata renders as "Not recorded" rather than a blank
+    panel (T1-02, docs/TIER1_ENHANCEMENTS_SPEC.md section 7.1.6). A missing
+    narrative is not handled here: build_cluster_evidence/find_severe_singletons
+    fail artifact generation instead of ever reaching a blank panel for that.
+    """
+    left, right = st.columns([1, 1])
+    with left:
+        st.write("**Flight phase:**", evidence.get("flight_phase") or "Not recorded")
+        st.write("**Component:**", evidence.get("component") or "Not recorded")
+        st.write("**Report month:**", evidence.get("date_yyyymm") or "Not recorded")
+    with right:
+        anomaly_labels = evidence.get("anomaly_labels") or []
+        results = evidence.get("results") or []
+        st.write("**Anomaly labels:**", ", ".join(anomaly_labels) or "Not recorded")
+        st.write("**Results:**", ", ".join(results) or "Not recorded")
+
+    st.markdown("**Narrative excerpt**")
+    excerpt = evidence.get("narrative_excerpt", "")
+    st.write(excerpt + ("…" if evidence.get("narrative_truncated") else ""))
+
+
+def _render_cluster_evidence(cluster: dict[str, Any]) -> None:
+    """T1-02 ACN evidence drill-down: replaces the old comma-separated
+    member-ACN list with a selector covering every cluster member plus any
+    precedent ACN the brief cites from outside the cluster.
+
+    ACNs cited in the current brief are listed first (member or precedent
+    alike); precedent entries are labeled distinctly from cluster membership
+    (docs/TIER1_ENHANCEMENTS_SPEC.md section 7.1).
+    """
+    evidence_list = cluster.get("evidence", [])
+    if not evidence_list:
+        return
+    cited = set(extract_cited_acns(str(cluster["brief"])))
+    # A stable sort preserves each group's existing deterministic order
+    # (member ACNs sorted, then precedent ACNs sorted) while moving cited
+    # entries to the front.
+    ordered = sorted(evidence_list, key=lambda item: item["acn"] not in cited)
+    choices = {
+        f"{'📌 ' if item['acn'] in cited else ''}ACN {item['acn']} · "
+        f"{'Precedent evidence' if item['role'] == 'precedent' else 'Cluster member'}": item
+        for item in ordered
+    }
+    selected_label = st.selectbox("Evidence", list(choices), key=f"evidence-{cluster['id']}")
+    _render_evidence_panel(choices[selected_label])
 
 
 def _render_cluster_queue(clusters: list[dict[str, Any]]) -> None:
@@ -180,9 +243,8 @@ def _render_cluster_queue(clusters: list[dict[str, Any]]) -> None:
             "Escalation draft" if cluster["escalated"] else "Below threshold",
         )
         st.write("**Source reports:**", f"{len(cluster['members'])} ACNs")
-        with st.expander("Source ACNs"):
-            st.write(", ".join(cluster["members"]))
         st.json(cluster["facets"], expanded=False)
+        _render_cluster_evidence(cluster)
     with right:
         st.subheader("Investigator draft")
         st.code(str(cluster["brief"]), language="markdown")
@@ -240,20 +302,7 @@ def _render_singleton_queue(singletons: list[dict[str, Any]]) -> None:
     if singleton["matched_severe_events"]:
         st.write("**Matched severe events:**", ", ".join(singleton["matched_severe_events"]))
 
-    left, right = st.columns([1, 1])
-    with left:
-        st.write("**Flight phase:**", evidence.get("flight_phase") or "Not recorded")
-        st.write("**Component:**", evidence.get("component") or "Not recorded")
-        st.write("**Report month:**", evidence.get("date_yyyymm") or "Not recorded")
-    with right:
-        anomaly_labels = evidence.get("anomaly_labels") or []
-        results = evidence.get("results") or []
-        st.write("**Anomaly labels:**", ", ".join(anomaly_labels) or "Not recorded")
-        st.write("**Results:**", ", ".join(results) or "Not recorded")
-
-    st.markdown("**Narrative excerpt**")
-    excerpt = evidence.get("narrative_excerpt", "")
-    st.write(excerpt + ("…" if evidence.get("narrative_truncated") else ""))
+    _render_evidence_panel(evidence)
 
 
 def main() -> None:

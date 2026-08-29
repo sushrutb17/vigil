@@ -46,6 +46,8 @@ class TriageStore(Protocol):
 
     def put_cluster_brief(self, cluster_id: str, brief: str) -> None: ...
 
+    def put_cluster_evidence(self, cluster_id: str, evidence_acns: list[str]) -> None: ...
+
     def put_rejection(self, cluster_id: str, value: dict[str, Any]) -> None: ...
 
 
@@ -82,6 +84,15 @@ class MemoryStore:
 
     def put_cluster_brief(self, cluster_id: str, brief: str) -> None:
         self.clusters.setdefault(cluster_id, {})["brief"] = brief
+
+    def put_cluster_evidence(self, cluster_id: str, evidence_acns: list[str]) -> None:
+        """Store which ACNs a cluster's final brief has evidence for (T1-02).
+
+        Only the ACN list, not narrative text: full report documents already
+        live once under ``reports/{acn}`` (docs/TIER1_ENHANCEMENTS_SPEC.md 5.2),
+        so a cluster document must never duplicate narrative excerpts.
+        """
+        self.clusters.setdefault(cluster_id, {})["evidence_acns"] = evidence_acns
 
     def put_rejection(self, cluster_id: str, value: dict[str, Any]) -> None:
         self.rejections[cluster_id] = value
@@ -139,6 +150,15 @@ class FirestoreStore:
         # here would make every briefed cluster indistinguishable from one that
         # was already escalated on a previous run.
         self._db.collection("clusters").document(cluster_id).set({"brief": brief}, merge=True)
+
+    def put_cluster_evidence(self, cluster_id: str, evidence_acns: list[str]) -> None:
+        # merge=True: written in the same second pass as put_cluster_brief, after
+        # triage_batch already populated this cluster document. Only the ACN
+        # list is stored -- full report documents already live once under
+        # reports/{acn}, so this must never duplicate narrative text.
+        self._db.collection("clusters").document(cluster_id).set(
+            {"evidence_acns": evidence_acns}, merge=True
+        )
 
     def put_rejection(self, cluster_id: str, value: dict[str, Any]) -> None:
         self._db.collection("rejections").document(cluster_id).set(value, merge=False)
