@@ -86,8 +86,8 @@ every feature below has to satisfy), `DATA.md` / `EVAL.md` / `DEMO_SCRIPT.md` /
 | `agents/contracts.py` (structured output schemas) | ✅ Done | `ExtractionOutput`, `DedupOutput`, `ClusterAnalysisOutput` |
 | `agents/prompts.py` (agent instructions) | 🔶 Partial | Written, never evaluated for quality against real reports |
 | `agents/runtime.py` (`call_with_observability`: retry+backoff, JSON repair, `agent_log`) | 🔶 Partial | Written, never exercised against a live model call |
-| `pipeline/embeddings.py` real Gemini embedding call | 🔶 Partial | Written, never executed — needs live credentials |
-| Live credential smoke test — one real `LlmAgent` call + one embedding call; re-verify `gemini-3.7-flash` / `gemini-embedding-2` still resolve | ⬜ Not Started | Added 2026-08-29: IDs were doc-verified 2026-08-21 but never exercised. A dead model ID discovered on deploy day would be catastrophic — run this before any Cloud Run deploy. |
+| `pipeline/embeddings.py` real Gemini embedding call | ✅ Done | Live `embed_content` call against `gemini-embedding-2` verified 2026-08-29 (3072-dim vectors) — see smoke test below |
+| Live credential smoke test — confirm `gemini-3.7-flash` / `gemini-embedding-2` still resolve via `google-genai` directly | ✅ Done | Verified 2026-08-29 in the user's terminal: `client.models.get()` resolved both IDs, one real `generate_content` call returned text, one real `embed_content` call returned a 3072-dim vector. This checked the raw model IDs via `google-genai`, not ADK's `LlmAgent`/`Runner` — that plumbing is exercised by the next row. |
 | **Wire the live agent graph into `pipeline/run_batch.py`** | ⬜ Not Started | Right now `run_batch.py` only ever uses the deterministic stand-ins from Phase 1, even in an "authenticated" run — this wiring doesn't exist yet. This is the single biggest gap between what the architecture doc describes and what the code does. |
 | Extractor eval vs coded fields (`eval/metrics.py`) | ⬜ Not Started | 🚫 Blocked by: real data + live extractor |
 | Dedup eval vs Report-2 pairs | ⬜ Not Started | 🚫 Blocked by: real data + live dedup |

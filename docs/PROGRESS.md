@@ -237,6 +237,28 @@ Next: live Gemini credential smoke test (Phase 3, needs the user's terminal —
 network), then wire the live agent graph into `run_batch.py` (the single biggest
 gap between the architecture doc and the code), then Cloud Run deploy.
 
+**User directive, same session:** do not drop Phase 5. Keep it in scope; the
+cut-list recommendation above stands as a flagged option only, not acted on.
+
+## 2026-08-29 (Sat, cont'd 3) — Live Gemini credentials confirmed working
+
+Ran the live-credential smoke test in the user's terminal (API key from Google AI
+Studio → local `.env`, gitignored). Checked both model IDs from `config/models.yaml`
+directly via `google-genai` (not through ADK's `LlmAgent`/`Runner` — that's the next
+item): `client.models.get()` resolved both `gemini-3.7-flash` and
+`gemini-embedding-2`, one real `generate_content` call against `gemini-3.7-flash`
+returned text, and one real `embed_content` call against `gemini-embedding-2`
+returned a 3072-dimension vector. Both model IDs are alive as of today, six weeks
+after being doc-verified on 2026-08-21 — the highest-risk unknown (a dead model ID
+discovered on deploy day) is now closed. `pipeline/embeddings.py`'s `embed_reports`
+is exercised by this same call path, so its PHASES.md row moves to done too.
+
+Next: wire the live ADK agent graph (`agents/definitions.py`) into
+`pipeline/run_batch.py` — the single biggest gap between the architecture doc and
+the running code. This needs the ADK `Runner`/session-service plumbing, which
+`build_agent_graph` alone doesn't exercise (constructing an `LlmAgent` doesn't call
+the API — only running it through a `Runner` does).
+
 <!-- Add a new dated section above this line each time we make a decision, ship a
      feature, or change status. Keep entries short: what changed, what's verified,
      what's still open. -->
