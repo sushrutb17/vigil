@@ -403,6 +403,49 @@ Writer, with 2-of-3 failure tolerance → `DEGRADED`) and Critic (LLM pass + the
 mandatory deterministic `strip_uncited_claims` backstop) for the escalated
 clusters — the piece that actually produces the cited investigator brief.
 
+## 2026-08-29 (Sat, cont'd 8) — Coordinator + Critic wired for escalated clusters
+
+Wrote `agents/orchestrate.live_draft_brief`, the last major piece of live wiring.
+Design decisions, each made explicitly rather than defaulted into:
+
+- **Plain-Python fan-out, not ADK's `ParallelAgent`.** Precedent/Risk/Brief
+  Writer run via a 3-worker `ThreadPoolExecutor`, each call wrapped in its own
+  try/except (`_call_or_none`). This was a real choice, not a shortcut:
+  ARCHITECTURE.md itself says "orchestration logic that can be plain Python
+  should be plain Python — judges score architectural discipline," and
+  per-call failure isolation is far easier to reason about (and verify without
+  guessing ADK's `ParallelAgent` event-stream contract) than trying to recover
+  partial results from one `ParallelAgent` Runner invocation. `agents/definitions.py`
+  still builds the real `ParallelAgent` object (now also exposing `precedent`/
+  `risk`/`brief_writer` individually) — it documents the true Sequential/Parallel
+  shape of the graph even though execution goes through the individual agents.
+- **Failure tolerance, exactly as specified:** 3/3 succeed → normal brief; 2/3 →
+  assembled from survivors with a `DEGRADED` banner; <2/3 → `CoordinatorFailure`,
+  caught by `run_batch.py._brief_for`, which falls back to the deterministic
+  brief template rather than dropping the cluster from the batch (same "a bad
+  report never kills a run" principle applied at cluster granularity).
+- **Precedent's "RAG" is same-batch, same-component filtering, not a corpus
+  vector search** — deliberately scoped down, consistent with the explicit
+  "reject full-corpus scale-up" decision from the rubric-review session. A real
+  vector index over the full 38k-report corpus would be a legitimate
+  enhancement later, not required for this submission.
+- **Critic is LLM pass + mandatory deterministic backstop, always, regardless.**
+  The Critic agent reviews the assembled draft, but `agents/critic.strip_uncited_claims`
+  runs last unconditionally on whatever came out (the critic's output, or the raw
+  assembled draft if the critic call itself failed) — guardrail #4 has no
+  exceptions, and this was already true before today; today just wires a real
+  LLM critic pass in front of that existing gate rather than replacing it.
+- **Only escalated clusters get this treatment** — non-escalated clusters keep
+  the cheap deterministic brief template even in `--live` mode. This is the
+  architecture's own threshold gate (Coordinator/Critic only run past stage 3→4),
+  and it's also what keeps a live run to ~4 extra clusters' worth of calls
+  instead of 23.
+
+All 14 tests pass, ruff clean, both new/changed modules import without
+credentials. Not yet run live — that's the next terminal step (`make run-live`
+again, now exercising the full pipeline including brief drafting for the 4
+escalated clusters found earlier).
+
 <!-- Add a new dated section above this line each time we make a decision, ship a
      feature, or change status. Keep entries short: what changed, what's verified,
      what's still open. -->

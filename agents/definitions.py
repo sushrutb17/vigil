@@ -65,5 +65,14 @@ def build_agent_graph(models_path: Path = Path("config/models.yaml")) -> dict[st
         "coordinator": ParallelAgent(
             name="coordinator", sub_agents=[precedent, risk, brief_writer]
         ),
+        # Also exposed individually: run_batch.py's live path fans these three
+        # out with plain-Python concurrency (per-call try/except -> 2-of-3
+        # failure tolerance) rather than through the ParallelAgent above, per
+        # ARCHITECTURE.md's own "orchestration logic that can be plain Python
+        # should be plain Python" guidance. The ParallelAgent object still
+        # documents the real Sequential/Parallel shape of the graph.
+        "precedent": precedent,
+        "risk": risk,
+        "brief_writer": brief_writer,
         "critic": critic,
     }

@@ -153,6 +153,30 @@ def load_dataset_slice(path: Path, *, slice_size: int | None, seed: int) -> list
     return random.Random(seed).sample(reports, slice_size)
 
 
+def _brief_for(
+    assessment: ClusterAssessment,
+    all_reports: Sequence[ASRSReport],
+    by_acn: dict[str, ASRSReport],
+    live_brief_kwargs: dict | None,
+) -> str:
+    """Live Coordinator+Critic for an escalated cluster in --live mode, else the
+    deterministic template. Escalated clusters only get the live brief — that's
+    where the architecture's threshold gate puts the expensive stage, and it's
+    also what keeps a live run to a handful of calls instead of one per cluster.
+    A coordinator failure (fewer than 2 of 3 sub-agents survived) falls back to
+    the deterministic brief rather than dropping the cluster from the batch.
+    """
+    if live_brief_kwargs is not None and assessment.risk.escalated:
+        from agents.orchestrate import CoordinatorFailure, live_draft_brief
+
+        members = [by_acn[acn] for acn in assessment.member_acns]
+        try:
+            return live_draft_brief(assessment, members, all_reports, **live_brief_kwargs)
+        except CoordinatorFailure:
+            pass
+    return draft_brief(assessment)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run VIGIL's batch triage pipeline")
     parser.add_argument("--demo", action="store_true", help="run the bundled six-report demo")
@@ -184,6 +208,7 @@ def main() -> None:
     )
     store = MemoryStore()
     assess_cluster: AssessClusterFn = _assess_cluster
+    live_brief_kwargs: dict | None = None
     if args.live:
         from functools import partial
 
@@ -191,13 +216,26 @@ def main() -> None:
         from agents.orchestrate import live_assess_cluster
 
         graph = build_agent_graph()
-        model = load_models()["flash"]
+        models = load_models()
         assess_cluster = partial(
-            live_assess_cluster, analyst=graph["analyst"], model=model, store=store
+            live_assess_cluster, analyst=graph["analyst"], model=models["flash"], store=store
         )
+        live_brief_kwargs = {
+            "precedent": graph["precedent"],
+            "risk": graph["risk"],
+            "brief_writer": graph["brief_writer"],
+            "critic": graph["critic"],
+            "model": models["flash"],
+            "brief_writer_model": models["brief_writer"],
+            "store": store,
+        }
     assessments = run_batch(reports, policy=policy, store=store, assess_cluster=assess_cluster)
+    by_acn = {report.acn: report for report in reports}
     payload = [
-        {**asdict(assessment), "brief": draft_brief(assessment)}
+        {
+            **asdict(assessment),
+            "brief": _brief_for(assessment, reports, by_acn, live_brief_kwargs),
+        }
         for assessment in assessments
         if not assessment.cluster_id.startswith("noise-")
     ]
