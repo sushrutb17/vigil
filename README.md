@@ -35,6 +35,8 @@ model ID `gemini-3.7-flash`; batch embedding uses `gemini-embedding-2`. Both IDs
 were verified in Google AI model documentation on 2026-08-21. No credentials are
 included or required for the local demo.
 
+**Current build status, phase by phase:** [`docs/PHASES.md`](docs/PHASES.md) — read this first if you're picking the project up mid-stream.
+
 For detailed design, evaluation, delivery plan, and recording plan, see
 [the project docs](docs/ARCHITECTURE.md).
 
