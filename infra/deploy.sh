@@ -12,6 +12,15 @@
 # with --set-env-vars: Cloud Run env vars are readable by anyone with viewer
 # access on the project and show up in deployment history and `describe` output.
 #
+# Each workload runs as its own minimally-privileged service account rather than
+# the default compute SA (which usually holds primitive Editor project-wide).
+# If a previous deploy of this script bound secretAccessor to the default
+# compute SA, revoke it:
+#   gcloud secrets remove-iam-policy-binding gemini-api-key \
+#     --member "serviceAccount:$(gcloud projects describe "$GOOGLE_CLOUD_PROJECT" \
+#       --format='value(projectNumber)')-compute@developer.gserviceaccount.com" \
+#     --role roles/secretmanager.secretAccessor
+#
 # What gets uploaded is controlled by .gcloudignore (and .dockerignore for local
 # docker builds), which deliberately exclude .env, .venv, data/raw, and
 # data/holdout. The locked holdout must never ship inside an image (guardrail #3).
@@ -22,9 +31,32 @@ set -euo pipefail
 GOOGLE_CLOUD_REGION="${GOOGLE_CLOUD_REGION:-us-central1}"
 SECRET_NAME="gemini-api-key"
 
-PROJECT_NUMBER="$(gcloud projects describe "$GOOGLE_CLOUD_PROJECT" \
-  --format='value(projectNumber)')"
-RUNTIME_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+# Two dedicated runtime identities instead of the default compute service
+# account. That default typically carries primitive Editor on the whole project,
+# which would make the public --allow-unauthenticated UI a project editor: any
+# RCE or SSRF in Streamlit or app code would hand an attacker editor credentials
+# from the metadata server. Splitting them also means "the UI cannot read the
+# API key" is enforced by IAM rather than by merely not mounting it.
+#
+#   vigil-ui-run    — no roles at all. The UI only serves the committed
+#                     artifacts/demo_run.json snapshot; it needs nothing.
+#   vigil-batch-run — secretAccessor on this one secret, plus Firestore access.
+UI_SA="vigil-ui-run@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"
+BATCH_SA="vigil-batch-run@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"
+
+ensure_service_account() {
+  local account_id="$1" display_name="$2"
+  if ! gcloud iam service-accounts describe \
+      "${account_id}@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com" \
+      --project "$GOOGLE_CLOUD_PROJECT" >/dev/null 2>&1; then
+    gcloud iam service-accounts create "$account_id" \
+      --project "$GOOGLE_CLOUD_PROJECT" --display-name "$display_name"
+  fi
+}
+
+echo "==> Ensuring dedicated runtime service accounts"
+ensure_service_account vigil-ui-run "VIGIL UI (no privileges)"
+ensure_service_account vigil-batch-run "VIGIL batch job"
 
 echo "==> Storing the Gemini API key in Secret Manager ($SECRET_NAME)"
 # printf without a trailing newline: a stray \n inside the secret payload would
@@ -37,20 +69,29 @@ else
     --project "$GOOGLE_CLOUD_PROJECT" --replication-policy=automatic --data-file=-
 fi
 
-# Least privilege: accessor on this one secret only, not project-wide.
+# Least privilege: accessor on this one secret, granted only to the batch
+# identity. The UI identity is deliberately never bound here.
 gcloud secrets add-iam-policy-binding "$SECRET_NAME" \
   --project "$GOOGLE_CLOUD_PROJECT" \
-  --member "serviceAccount:${RUNTIME_SA}" \
+  --member "serviceAccount:${BATCH_SA}" \
   --role roles/secretmanager.secretAccessor \
   --condition=None >/dev/null
 
+# Firestore read/write for the batch job only. The UI never touches Firestore.
+gcloud projects add-iam-policy-binding "$GOOGLE_CLOUD_PROJECT" \
+  --member "serviceAccount:${BATCH_SA}" \
+  --role roles/datastore.user \
+  --condition=None >/dev/null
+
 echo "==> Deploying UI service (vigil-ui) to $GOOGLE_CLOUD_REGION"
-# The UI serves the committed artifacts/demo_run.json snapshot, so it needs no
-# model credentials at all — the API key is deliberately not mounted here.
+# Runs as vigil-ui-run, which holds no IAM roles whatsoever. The UI serves the
+# committed artifacts/demo_run.json snapshot: no model calls, no Firestore, no
+# secrets. Public exposure is therefore bounded to the static content itself.
 gcloud run deploy vigil-ui \
   --project "$GOOGLE_CLOUD_PROJECT" \
   --region "$GOOGLE_CLOUD_REGION" \
   --source . \
+  --service-account "$UI_SA" \
   --min-instances 0 \
   --memory 1Gi \
   --allow-unauthenticated
@@ -64,6 +105,7 @@ gcloud run jobs deploy vigil-batch \
   --project "$GOOGLE_CLOUD_PROJECT" \
   --region "$GOOGLE_CLOUD_REGION" \
   --source . \
+  --service-account "$BATCH_SA" \
   --set-secrets "GOOGLE_API_KEY=${SECRET_NAME}:latest" \
   --set-env-vars "GOOGLE_CLOUD_PROJECT=$GOOGLE_CLOUD_PROJECT" \
   --max-retries 1 \
