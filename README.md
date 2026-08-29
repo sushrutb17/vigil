@@ -68,8 +68,11 @@ written to `eval/runs/*.json`, which is committed.
 
 ## Measured results
 
-All numbers come from `eval/runs/`, not from a spreadsheet. First live run,
-2026-08-29, seeded 200-row dev sample and 100-row locked holdout:
+All numbers come from `eval/runs/`, which is committed, not from a spreadsheet.
+
+### Extractor self-improvement
+
+First live run, 2026-08-29, seeded 200-row dev sample and 100-row locked holdout:
 
 | Extractor prompt | dev macro-F1 | dev accuracy | holdout macro-F1 | holdout accuracy |
 |---|---|---|---|---|
@@ -92,6 +95,39 @@ Three things we are reporting because they are true, not because they flatter:
    `flight_phase` improved 0.084 → 0.121 on dev, while the keyword baseline
    scores 0.171. The loop optimizes `primary_problem`; the untargeted field is
    still beaten by a deterministic heuristic.
+
+### Clustering and the citation gate (`make eval-offline`)
+
+Deterministic, no model calls, seeded — anyone with the dataset regenerates
+these. Real 5,000-report slice:
+
+| Metric | Value | Reference |
+|---|---|---|
+| Critic catch rate (uncited + fabricated claims) | **1.000** | 400 seeded claims, 200 trials |
+| Critic retention of correctly cited claims | **1.000** | control — a gate that deletes everything would score 1.000 on catch rate alone |
+| Cluster purity vs `Events_Anomaly` | 0.301 | majority-class baseline 0.219 |
+| Adjusted Rand vs `Events_Anomaly` | 0.0018 | — |
+| Noise fraction | 0.837 | **exceeds our own declared guard of 0.40** |
+
+**The clustering numbers are bad and we are leaving them visible.** Purity beats
+a single-blob baseline by only +0.08, the Adjusted Rand is effectively zero, and
+84% of reports end up unclustered — more than double the `noise_fraction < 0.40`
+tripwire this project predeclared in `docs/EVAL.md`. That guard exists in
+`eval/guards.py` but was only ever invoked on the extractor promotion loop, so
+nothing had checked it against the clustering stage it was written for until we
+ran this.
+
+In fairness to the design, `Events_Anomaly` is a coarse 58-value administrative
+taxonomy whose largest bucket ("ATC Issue All Types", 1,097 reports) spans
+operationally unrelated events, so a cluster can be operationally coherent while
+scoring badly against it — and the 23 clusters it does produce are recognisably
+real hazards (drone encounters at low altitude, cabin fume events, NMAC
+conflicts). But an ARI of 0.0018 is too low to wave away.
+
+We did not tune the clustering parameters to get under the guard. Doing that
+hours before a deadline, with no held-out check on the clustering stage, is the
+exact reward-hacking behaviour the rest of this system is built to prevent. It is
+recorded as a measured failure in [`docs/PHASES.md`](docs/PHASES.md) instead.
 
 ## Failure tolerance
 

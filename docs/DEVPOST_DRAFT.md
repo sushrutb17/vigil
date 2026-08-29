@@ -121,6 +121,34 @@ guard-blocked — is written to `eval/runs/`, which is committed to the repo.
 | v1 (hand-written) | 0.0056 | 0.105 | 0.0081 | 0.080 |
 | v2 (promoted by the loop) | **0.4099** | **0.600** | **0.4219** | **0.680** |
 
+## What we measured, including what failed
+
+Deterministic evals on the real 5,000-report slice (`make eval-offline`):
+
+| Metric | Value | Reference |
+|---|---|---|
+| Critic catch rate (uncited + fabricated claims) | **1.000** | 400 seeded claims |
+| Critic retention of correctly cited claims | **1.000** | control against a gate that just deletes everything |
+| Cluster purity vs `Events_Anomaly` | 0.301 | majority-class baseline 0.219 |
+| Adjusted Rand vs `Events_Anomaly` | 0.0018 | — |
+| Noise fraction | 0.837 | exceeds our own declared 0.40 guard |
+
+The citation gate is the component we most needed to be right, and it is: it
+catches every planted uncited claim and every planted fabricated ACN, while
+keeping every legitimate one.
+
+**The clustering is the component we most wanted to be right, and it is not.**
+Purity beats a single-blob baseline by only 0.08, the Adjusted Rand is
+effectively zero, and 84% of reports end up unclustered — more than double the
+`noise_fraction < 0.40` tripwire we ourselves predeclared. That guard was
+implemented but only ever invoked on the extractor loop, so nothing had checked
+it against the clustering stage it was written for until we ran this.
+
+We did not tune the parameters to get under our own guard. Doing that hours
+before a deadline, with no held-out check on the clustering stage, is the exact
+behaviour the rest of this system exists to prevent, and we would rather submit a
+measured failure than an unmeasured success.
+
 ## Challenges, findings and learnings
 
 We are reporting the failures because they are the actual findings.
