@@ -18,6 +18,7 @@ Regenerate the artifact with ``make artifact``.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -25,9 +26,38 @@ import streamlit as st
 
 from pipeline.risk import FrozenRiskPolicy
 from pipeline.run_batch import demo_reports, draft_brief, run_batch
-from pipeline.store import MemoryStore
+from pipeline.store import MemoryStore, TriageStore
 
 ARTIFACT_PATH = Path("artifacts/demo_run.json")
+
+
+@st.cache_resource(show_spinner=False)
+def _get_store() -> TriageStore:
+    """One store instance per Streamlit session, shared across button-click reruns.
+
+    Mirrors the ``--firestore`` selection in ``pipeline/run_batch.py``: when this
+    app runs on Cloud Run against real data, ``GOOGLE_CLOUD_PROJECT`` is set and
+    Approve/Reject decisions land in the same Firestore project the batch job
+    wrote clusters/escalations to. Locally (no env var, no credentials needed),
+    decisions still persist for the lifetime of the running UI process.
+    """
+    if os.environ.get("GOOGLE_CLOUD_PROJECT"):
+        from pipeline.store import FirestoreStore
+
+        return FirestoreStore()
+    return MemoryStore()
+
+
+def _cluster_payload(cluster: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "cluster_id": cluster["id"],
+        "name": cluster["name"],
+        "risk": cluster["risk"],
+        "escalated": cluster["escalated"],
+        "member_acns": list(cluster["members"]),
+        "facets": cluster["facets"],
+        "brief": str(cluster["brief"]),
+    }
 
 
 @st.cache_data(show_spinner=False)
@@ -111,14 +141,23 @@ def main() -> None:
     with right:
         st.subheader("Investigator draft")
         st.code(str(cluster["brief"]), language="markdown")
+        store = _get_store()
         state_key = f"decision-{cluster['id']}"
         if state_key not in st.session_state:
             st.session_state[state_key] = "Pending human review"
         controls = st.columns(2)
         if controls[0].button("Approve draft", type="primary"):
-            st.session_state[state_key] = "Approved by human"
+            store.set_cluster_status(cluster["id"], "approved")
+            st.session_state[state_key] = "Approved by human — persisted to store"
         if controls[1].button("Reject draft"):
-            st.session_state[state_key] = "Rejected by human; retain as negative example"
+            store.set_cluster_status(cluster["id"], "rejected")
+            # Written to rejections/ as a negative few-shot example (ARCHITECTURE.md
+            # "State & memory") so a future Analyst prompt-revision pass can be
+            # told what a human already rejected, not just what got escalated.
+            store.put_rejection(cluster["id"], _cluster_payload(cluster))
+            st.session_state[state_key] = (
+                "Rejected by human — persisted as a negative example for future Analyst prompts"
+            )
         st.info(st.session_state[state_key])
         st.download_button(
             "Download brief (Markdown)",

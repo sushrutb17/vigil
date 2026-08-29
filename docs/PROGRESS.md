@@ -550,6 +550,48 @@ Everything is committed and green (14/14 tests, ruff clean). Nothing has been
 deployed yet — `make deploy` is the next terminal step, and the first execution
 of `vigil-batch` will be the first time `FirestoreStore` has ever run.
 
+## 2026-08-29 (Sat, cont'd 11) — UI Approve/Reject now persists (Phase 1's last open row)
+
+Picked up the relay per KICKOFF_PROMPTS.md Prompt B/A: tree was already at a
+green checkpoint (14/14 tests, ruff clean) except two doc files from the
+planning session (`docs/HANDOFF.md`, `docs/KICKOFF_PROMPTS.md`) that were
+never committed — committed those first, plus gitignoring the local
+`.agents/`/`.claude/`/`.vscode/` harness config dirs.
+
+Then did the next unblocked critical-path item per Prompt A step 4: the UI's
+Approve/Reject buttons previously only touched `st.session_state` — nothing
+reached `MemoryStore`/Firestore, despite ARCHITECTURE.md requiring a
+`rejections/` collection feeding future Analyst prompts (this was flagged
+2026-08-29 as the best story-per-hour item: one click evidences both the 30%
+state-management criterion and the 40% learning-from-rejections criterion).
+
+Added two methods to `TriageStore` (`pipeline/store.py`):
+- `set_cluster_status(cluster_id, status)` — a **merge** update, not an
+  overwrite. Matters for the real deployment: the batch job already wrote
+  `clusters/<id>` with analyst output + risk score before a human ever opens
+  the UI; a naive `put_cluster` overwrite would have clobbered that.
+- `put_rejection(cluster_id, value)` — writes to `rejections/`, keyed by
+  cluster id.
+
+`ui/streamlit_app.py` now picks `FirestoreStore` when `GOOGLE_CLOUD_PROJECT`
+is set (same convention as `run_batch.py --firestore`) else `MemoryStore`,
+cached per session via `st.cache_resource` so a decision survives the
+rerun Streamlit does on every button click. Approve sets `status=approved`.
+Reject sets `status=rejected` and writes a rejection record (name, facets,
+member ACNs, brief text) as the negative example.
+
+Added `tests/test_store_decisions.py` (3 tests: merge-preserves-fields,
+creates-record-if-unseen, rejection-keyed-independently-of-cluster-status).
+17/17 tests pass, ruff clean. Not yet verified against a live Streamlit
+session or a real Firestore project — that's a `make ui` / post-deploy check,
+not a unit-test claim.
+
+PHASES.md Phase 1's last open row flipped to Done. Phase 3/4 rows (deploy)
+are next and are the only remaining unblocked critical-path items per Prompt
+A step 5 — they need `gcloud`/network, which this device_bash session
+doesn't have, so they're prepped as exact commands for the user to run in
+their own terminal rather than attempted here.
+
 <!-- Add a new dated section above this line each time we make a decision, ship a
      feature, or change status. Keep entries short: what changed, what's verified,
      what's still open. -->

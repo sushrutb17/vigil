@@ -42,6 +42,10 @@ class TriageStore(Protocol):
 
     def record_escalation(self, member_acns: frozenset[str]) -> None: ...
 
+    def set_cluster_status(self, cluster_id: str, status: str) -> None: ...
+
+    def put_rejection(self, cluster_id: str, value: dict[str, Any]) -> None: ...
+
 
 class MemoryStore:
     """Local-only store whose behavior mirrors the required Firestore collections."""
@@ -51,6 +55,7 @@ class MemoryStore:
         self.clusters: dict[str, dict[str, Any]] = {}
         self.agent_log: list[dict[str, Any]] = []
         self._escalations: list[frozenset[str]] = []
+        self.rejections: dict[str, dict[str, Any]] = {}
 
     def put_report(self, acn: str, value: dict[str, Any]) -> None:
         self.reports.setdefault(acn, value)
@@ -67,6 +72,14 @@ class MemoryStore:
     def record_escalation(self, member_acns: frozenset[str]) -> None:
         if not self.previously_escalated(member_acns):
             self._escalations.append(member_acns)
+
+    def set_cluster_status(self, cluster_id: str, status: str) -> None:
+        """Update just the status field (human gate decision), preserving the rest
+        of whatever the batch job already wrote for this cluster."""
+        self.clusters.setdefault(cluster_id, {})["status"] = status
+
+    def put_rejection(self, cluster_id: str, value: dict[str, Any]) -> None:
+        self.rejections[cluster_id] = value
 
 
 def _jaccard(left: frozenset[str], right: frozenset[str]) -> float:
@@ -104,3 +117,11 @@ class FirestoreStore:
     def record_escalation(self, member_acns: frozenset[str]) -> None:
         if not self.previously_escalated(member_acns):
             self._db.collection("escalations").add({"member_acns": sorted(member_acns)})
+
+    def set_cluster_status(self, cluster_id: str, status: str) -> None:
+        # merge=True: a status update from the human gate must not clobber the
+        # analyst output/risk fields the batch job already wrote for this cluster.
+        self._db.collection("clusters").document(cluster_id).set({"status": status}, merge=True)
+
+    def put_rejection(self, cluster_id: str, value: dict[str, Any]) -> None:
+        self._db.collection("rejections").document(cluster_id).set(value, merge=False)
