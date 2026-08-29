@@ -197,6 +197,12 @@ def main() -> None:
         help="use a real Analyst LlmAgent call per cluster instead of the deterministic "
         "naming stand-in (needs live Gemini credentials)",
     )
+    parser.add_argument(
+        "--firestore",
+        action="store_true",
+        help="persist reports/clusters/agent_log/escalations to Firestore instead of "
+        "in-memory (needs GOOGLE_CLOUD_PROJECT and ADC)",
+    )
     args = parser.parse_args()
     if bool(args.demo) == bool(args.dataset):
         parser.error("pass exactly one of --demo or --dataset PATH")
@@ -206,7 +212,13 @@ def main() -> None:
         if args.demo
         else load_dataset_slice(args.dataset, slice_size=args.slice, seed=args.seed)
     )
-    store = MemoryStore()
+    store: TriageStore
+    if args.firestore:
+        from pipeline.store import FirestoreStore
+
+        store = FirestoreStore()
+    else:
+        store = MemoryStore()
     assess_cluster: AssessClusterFn = _assess_cluster
     live_brief_kwargs: dict | None = None
     if args.live:

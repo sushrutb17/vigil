@@ -14,8 +14,15 @@ data/cache/
 
 # Runtime and evaluation output.
 eval/runs/
-artifacts/
+artifacts/*
 *.log
+
+# Deliberate exception: a committed snapshot of a real --live run over the real
+# ASRS slice. The deployed Cloud Run UI serves this so reviewers see genuine
+# model-written briefs over real data instantly, without a per-pageview model
+# cost or a dependency on API quota holding across the judging window.
+# Regenerate with `make artifact`.
+!artifacts/demo_run.json
 
 # Local coding-harness instructions are intentionally not part of the public repo.
 AGENTS.md

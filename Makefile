@@ -1,4 +1,4 @@
-.PHONY: demo run-real run-live ui test lint check download
+.PHONY: demo run-real run-live artifact ui test lint check download deploy
 
 demo:
 	uv run python -m pipeline.run_batch --demo
@@ -8,6 +8,15 @@ run-real:
 
 run-live:
 	uv run python -m pipeline.run_batch --dataset data/raw/default/train/0000.parquet --slice 5000 --live
+
+# Regenerates the snapshot the deployed Cloud Run UI serves. Needs GOOGLE_API_KEY.
+artifact:
+	uv run python -m pipeline.run_batch --dataset data/raw/default/train/0000.parquet \
+		--slice 5000 --live --output artifacts/demo_run.json > /dev/null
+	@echo "Wrote artifacts/demo_run.json"
+
+deploy:
+	./infra/deploy.sh
 
 ui:
 	uv run streamlit run ui/streamlit_app.py
