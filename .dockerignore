@@ -25,3 +25,7 @@ eval/runs/
 AGENTS.md
 CLAUDE.md
 ac-ai-assistant.md
+
+# The gcloud CLI unpacks into the repo root (~250MB). Never in an image.
+google-cloud-sdk/
+google-cloud-cli-*.tar.gz

@@ -41,7 +41,7 @@ every feature below has to satisfy), `DATA.md` / `EVAL.md` / `DEMO_SCRIPT.md` /
 |---|---|---|
 | GCP $150 credit request submitted | ✅ Done | Via hackathon credit form |
 | Devpost registration | ✅ Done | Username: sushrut17 |
-| GCP project created | ✅ Done | |
+| GCP project created | ✅ Done | Project **ID** is `vigil-hackathon-506218` (display name is `vigil-hackathon`; GCP appended the suffix because the bare ID was globally taken). All `gcloud` commands need the ID — passing the name fails with a misleading "caller does not have permission" rather than "not found" |
 | APIs enabled (Vertex AI, Cloud Run Admin, Firestore) | ✅ Done | |
 | Budget alert ($50) | ✅ Done | Set in Billing → Budgets & alerts, scoped to `vigil-hackathon` project, threshold alerts on |
 | Firestore database instance created | ✅ Done | `(default)` DB in `vigil-hackathon` project, Standard edition, Native mode, empty (collections created lazily on first write by `FirestoreStore`) — verified via Cloud Console, not yet exercised by a live write |

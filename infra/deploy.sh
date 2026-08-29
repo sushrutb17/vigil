@@ -5,7 +5,11 @@
 #   gcloud auth login && gcloud config set project <project>
 #   gcloud services enable run.googleapis.com cloudbuild.googleapis.com \
 #       artifactregistry.googleapis.com secretmanager.googleapis.com
-#   export GOOGLE_CLOUD_PROJECT=vigil-hackathon
+#   export GOOGLE_CLOUD_PROJECT=vigil-hackathon-506218
+#     ^ the PROJECT ID, not the display name. GCP appended -506218 because the
+#       bare "vigil-hackathon" ID was already taken globally; `gcloud config set
+#       project vigil-hackathon` fails with a confusing permission error rather
+#       than "not found". Confirm with `gcloud projects list`.
 #   export GOOGLE_API_KEY=...        # same key used locally, from .env
 #
 # The API key is stored in Secret Manager and mounted by reference, never passed

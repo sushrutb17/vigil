@@ -40,14 +40,14 @@ Entry format:
   device_bash does not have. Run in your own Mac terminal, repo root:
   ```
   gcloud auth login
-  gcloud config set project vigil-hackathon
+  gcloud config set project vigil-hackathon-506218
   gcloud services enable run.googleapis.com cloudbuild.googleapis.com \
       artifactregistry.googleapis.com secretmanager.googleapis.com
-  export GOOGLE_CLOUD_PROJECT=vigil-hackathon
+  export GOOGLE_CLOUD_PROJECT=vigil-hackathon-506218
   export GOOGLE_API_KEY=$(grep GOOGLE_API_KEY .env | cut -d'=' -f2-)
   make deploy
   ```
-  Then `gcloud run jobs execute vigil-batch --project vigil-hackathon --region us-central1 --wait`
+  Then `gcloud run jobs execute vigil-batch --project vigil-hackathon-506218 --region us-central1 --wait`
   (deploy.sh prints this exact command at the end too). After that: open the
   printed UI URL, click Approve/Reject once each to verify Firestore actually
   receives the writes (check the Firestore console for clusters/ status

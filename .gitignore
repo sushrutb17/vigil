@@ -33,3 +33,10 @@ ac-ai-assistant.md
 .agents/
 .claude/
 .vscode/
+
+# The gcloud CLI was installed into the repo root on 2026-08-29 (the Homebrew
+# cask install failed with "unknown install step: copy"; the official tarball
+# extracts wherever it is unpacked). Excluded here and in .gcloudignore /
+# .dockerignore so it never reaches a commit or a build context.
+google-cloud-sdk/
+google-cloud-cli-*.tar.gz

@@ -26,3 +26,9 @@ eval/runs/
 AGENTS.md
 CLAUDE.md
 ac-ai-assistant.md
+
+# The gcloud CLI was installed into the repo root (the Homebrew cask failed;
+# the official tarball extracts in place). It is ~250MB unpacked and must never
+# be uploaded to Cloud Build as part of the source context.
+google-cloud-sdk/
+google-cloud-cli-*.tar.gz
