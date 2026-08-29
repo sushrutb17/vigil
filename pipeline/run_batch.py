@@ -125,11 +125,11 @@ def demo_reports() -> list[ASRSReport]:
                 "During landing rollout the crew observed an uncommanded engine shutdown "
                 "indication and completed the checklist."
             ),
-            anomaly_labels=("Engine Shutdown",),
+            anomaly_labels=("Aircraft Equipment Problem Critical",),
             aircraft_type="Regional Jet",
             flight_phase="Landing Rollout",
             component="Engine Control",
-            results=("Engine Shutdown",),
+            results=("Flight Crew Inflight Shutdown",),
             date_yyyymm=f"20220{index}",
         )
         for index in range(1, 7)

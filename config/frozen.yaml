@@ -7,13 +7,16 @@ risk:
   frequency_weight: 0.30
   trend_weight: 0.20
   severe_results:
-    - Aircraft Damage
-    - Injury
-    - Near Midair Collision
+    - Aircraft Aircraft Damaged
+    - General Physical Injury / Incapacitation
+    - Flight Crew Inflight Shutdown
   severe_events:
-    - Loss of Separation
-    - Loss of Control
-    - Engine Shutdown
+    - Conflict NMAC
+    - Conflict Airborne Conflict
+    - Conflict Ground Conflict
+    - Ground Event / Encounter Loss Of Aircraft Control
+    - Inflight Event / Encounter Loss Of Aircraft Control
+    - Flight Deck / Cabin / Aircraft Event Illness / Injury
 clustering:
   min_cluster_size: 5
   min_samples: 3

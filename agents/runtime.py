@@ -25,14 +25,21 @@ def call_with_observability[Result](
     max_retries: int = 2,
     backoff_seconds: float = 0.25,
     tokens: int | None = None,
+    extract_tokens: Callable[[Result], int | None] | None = None,
 ) -> Result:
     """Run an agent invocation with capped retries and one audit log entry.
 
     A failed report is raised to its batch-level caller, which records that report
     as failed and continues the batch. No retry policy is placed inside the
     deterministic clustering stage.
+
+    ``tokens`` is for callers who already know the count. Live model calls only
+    learn it from the response, so ``extract_tokens`` pulls it out of a
+    successful ``invoke()`` result instead; it takes precedence over ``tokens``
+    when both are supplied.
     """
     started = time.perf_counter()
+    result: Result | None = None
     try:
         for attempt in range(max_retries + 1):
             try:
@@ -46,13 +53,14 @@ def call_with_observability[Result](
             raise RuntimeError("agent invocation loop exited unexpectedly")
     finally:
         elapsed_ms = int((time.perf_counter() - started) * 1000)
+        logged_tokens = extract_tokens(result) if extract_tokens and result is not None else tokens
         store.put_agent_log(
             AgentCallLog.create(
                 agent=agent,
                 model=model,
                 input_text=input_text,
                 latency_ms=elapsed_ms,
-                tokens=tokens,
+                tokens=logged_tokens,
             )
         )
     return result

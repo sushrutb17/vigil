@@ -259,6 +259,84 @@ the running code. This needs the ADK `Runner`/session-service plumbing, which
 `build_agent_graph` alone doesn't exercise (constructing an `LlmAgent` doesn't call
 the API — only running it through a `Runner` does).
 
+## 2026-08-29 (Sat, cont'd 4) — ADK Runner validated live; scope correction; risk-policy bug found and fixed
+
+Added `agents/live.py` (a synchronous `Runner`/`InMemorySessionService` helper for
+one ADK `LlmAgent` turn, built from reading the installed `google-adk==2.7.1`
+source directly rather than guessing the API — CLAUDE.md's instruction to verify
+SDK surfaces before writing code) and a small `extract_tokens` addition to
+`agents/runtime.call_with_observability` (live calls only know their token count
+after the response comes back, unlike the existing static `tokens=` param).
+
+**Validated live in the user's terminal:** built a standalone Extractor `LlmAgent`
+(real prompt, real `ExtractionOutput` schema) and ran it on one real report through
+`agents/live.py`. Structured JSON came back correctly, parsed clean into
+`ExtractionOutput`, and the `agent_log` entry captured real latency (5,440ms) and
+token count (1,064) — proving the Runner/session pattern inferred from source
+actually works, before building the other four agent stages on top of it unverified.
+
+**Scope correction, found while planning the wiring:** Extractor and Dedup are NOT
+per-report operational calls in the live batch path. ASRS pre-merges "Report 1" and
+"Report 2" (a second reporter's account of the *same* event) into one row under one
+ACN before publishing — there is no cross-report duplicate to find at runtime.
+`pipeline/ingest.py` already gets structured fields free from NASA's own coded
+columns, so the LLM Extractor's actual job is proving it can derive the same fields
+from raw narrative text, scored against those coded fields as ground truth on a
+~200-row dev sample (exactly what BUILD_PLAN.md's Day-2 plan says) — not a call per
+report in the operational batch. That distinction matters for cost: my one
+Extractor call took 5.4s/1,064 tokens; at 5,000 reports that's 7+ hours and ~5M
+tokens, not viable and not what the architecture calls for. The real operational
+live scope is: Analyst once **per cluster** (23, not 5,000), Coordinator+Critic once
+**per escalated cluster** (a handful). Extractor/Dedup live exercise moves to a
+separate eval-script task, not `run_batch.py --live` wiring.
+
+**Bug found while checking whether that operational scope was even reachable:**
+zero of the real 5k slice's 23 clusters crossed the 0.60 escalation threshold — max
+observed was 0.40. Root cause: `config/frozen.yaml`'s `severe_results`/
+`severe_events` listed plausible-sounding labels (`"Aircraft Damage"`, `"Injury"`,
+`"Loss of Control"`, `"Engine Shutdown"`, `"Near Midair Collision"`,
+`"Loss of Separation"`) that **do not exist anywhere in the real ASRS coded
+vocabulary** — checked directly: 0 of 5,000 real reports matched any of them. Since
+`severity_weight` is 0.50 of the total score, `severity=0` caps every cluster's
+total at ≤0.50, structurally below the 0.60 threshold regardless of cluster size or
+trend — no real-data cluster could ever have escalated under the old config.
+
+Flagged this to the user explicitly before touching it, since `config/frozen.yaml`
+is the guardrail #2 "immutable risk policy" file — its own header permits "a
+reviewed code/configuration change," but changing what counts as severe is a
+substantive correction, not a mechanical bugfix, so it went through
+`AskUserQuestion` rather than being silently committed. **User confirmed: fix now,
+verify, commit.**
+
+Corrected `severe_results`/`severe_events` to the real matching ASRS values (found
+by dumping the full 38-value `Events.5_Result` and 92-value `Events_Anomaly`
+vocabularies and searching for the intended concepts): `Aircraft Aircraft Damaged`,
+`General Physical Injury / Incapacitation`, `Flight Crew Inflight Shutdown` (all
+Result-column values, → `severe_results`); `Conflict NMAC`, `Conflict Airborne
+Conflict`, `Conflict Ground Conflict`, `Ground Event / Encounter Loss Of Aircraft
+Control`, `Inflight Event / Encounter Loss Of Aircraft Control`, `Flight Deck /
+Cabin / Aircraft Event Illness / Injury` (all Anomaly-column values, → `severe_events`).
+
+This also broke `test_demo_batch_escalates_a_cited_cluster` — the synthetic demo
+fixture used the same fictional `"Engine Shutdown"` placeholder in both its
+`results` and `anomaly_labels` fields, which (by design, before this fix) happened
+to match the old fictional policy string. Fixed the fixture to use real values too
+(`results=("Flight Crew Inflight Shutdown",)`, `anomaly_labels=("Aircraft Equipment
+Problem Critical",)`) — both real ASRS strings, so the demo fixture is now
+factually grounded rather than coincidentally matching a made-up label. All 14
+tests pass again.
+
+**Verified on the real 5k slice after the fix:** 4 of 23 clusters now escalate
+(risk 0.71, 0.70, 0.66, 0.66), with sensible gradation — small tight clusters (5-8
+members) escalate on real severity signal, while the large 629-member "Engine
+events during Parked" cluster stays at 0.50 (low proportional severity-hit rate).
+The core "surfaces emerging hazard patterns, escalates the severe ones" story now
+actually works against real data, not just the synthetic fixture.
+
+Next: wire live Analyst (per cluster) and Coordinator+Critic (per escalated
+cluster) into `run_batch.py` behind a `--live` flag, now that escalated clusters
+exist on real data to test against.
+
 <!-- Add a new dated section above this line each time we make a decision, ship a
      feature, or change status. Keep entries short: what changed, what's verified,
      what's still open. -->
