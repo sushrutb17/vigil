@@ -6,6 +6,95 @@ for "what's actually verified working" vs. "what's built but untested."
 
 ---
 
+## 2026-08-29 (Sat night) — Phase 5 self-improvement loop, built and run live
+
+**Context:** Phase 5 had zero code — not even a stub — while every other phase was
+substantially done. It is also the one phase the user explicitly directed not to cut.
+Built it end to end and ran it against the real validation split.
+
+**Order of work, and why.** The loop needs an *objective function* before it needs an
+Evaluator, so Phase 3's "extractor eval vs coded fields" row had to land first. That
+made `eval/extractor_eval.py` the prerequisite, not a parallel task.
+
+**What the first real run found — the unflattering version first.** On a seeded
+200-row validation sample:
+
+| Prompt | dev macro-F1 | dev acc | holdout macro-F1 | holdout acc |
+|---|---|---|---|---|
+| majority-class + keyword baseline | 0.0515 | 0.395 | — | — |
+| extractor v1 | 0.0056 | 0.105 | 0.0081 | 0.080 |
+| extractor v2 (promoted) | 0.4099 | 0.600 | 0.4219 | 0.680 |
+
+**The v1 extractor was losing to a trivial baseline.** Majority-class + keyword rules
+beat the live LLM extractor roughly 9x on macro-F1. The cause, which the Evaluator
+diagnosed correctly from the confusion list alone, is that v1 never told the model the
+ASRS labels are a *closed vocabulary* — so it answered "Approach" where the coded value
+is "Initial Approach", "Takeoff" for "Takeoff / Launch", and free-text event
+descriptions for `primary_problem` (a field v1 omitted from its field list entirely).
+This is why EVAL.md insists on baselines: without one, "0.41" reads as a win from
+nothing rather than the repair of a regression.
+
+**The holdout gain exceeded the dev gain** (+0.4139 vs +0.4043). That is the opposite of
+the overfitting signature EVAL.md warns about, and it is the real evidence the revision
+fixed a defect rather than memorizing dev. Worth stating plainly in the video.
+
+**The field the loop did not optimize still trails its baseline.** `flight_phase`
+(`field_macro_f1`) improved 0.0844 → 0.1207 on dev, but the deterministic keyword
+baseline scores 0.1705. Reporting only `primary_problem` would hide that. Not fixing it
+now — it is a scope question, not a bug, and the honest number is more useful than a
+rushed second objective.
+
+**A guard fired, and the guard turned out to be wrong.** The 8-row smoke run blocked
+this same revision on `label_diversity_not_collapsed`. On inspection this was a metric
+bug, not a caught cheat: I had defined diversity as
+`distinct_predicted / distinct_expected`, which *rewarded* v1's free-text sprawl (19
+unique output strings across 8 reports → 2.33) and *punished* a candidate correctly
+constrained to the closed vocabulary (exactly 1.00), so the candidate failed
+`candidate >= 0.5 * incumbent`.
+
+Replaced it with **in-vocabulary label coverage** — the fraction of the real coded label
+space the predictions actually use, bounded to [0,1]. This *tightens* the guard against
+the hack EVAL.md actually names: a majority-label predictor on an 18-class field now
+scores ~0.06, well under the 0.15 floor, where the old ratio might have let it through.
+
+Recording this deliberately and at length, because "we changed a tripwire immediately
+after it blocked a promotion" is the single most self-serving-looking move in this
+project, and the audit trail is the only thing that separates a fixed metric from a
+rationalized one. **This is explicitly *not* the "caught our own agent cheating" demo
+beat from EVAL.md** — that beat needs a revision that genuinely gamed a metric, and
+claiming this one would be dishonest.
+
+**Design decisions worth keeping:**
+- `evaluate_extractor_guards` is **relative** ("must not degrade"), separate from the
+  existing absolute `evaluate_guards`. The absolute floors describe a finished system;
+  applied to a first revision they reject everything, and `dedup_precision` defaults to
+  0 for an extractor-only run, so the loop would have failed a guard on a metric it
+  never measured.
+- The holdout is consulted **only** after the candidate text is already fixed, and only
+  at the promote/discard decision. A guard failure or a non-positive dev gain
+  short-circuits before it is read — asserted by tests that make the holdout scorer
+  raise if it is called at all.
+- `eval/extractor_eval.py` takes `reports`, never a path, so `eval/holdout_score.py`
+  stays the only module that can name the locked split.
+- The architecture guardrail tests now parse an AST and strip docstrings before
+  scanning. These modules document their own guardrails at length, and a substring scan
+  cannot tell "writes config/frozen.yaml" from a docstring promising it never does.
+- `eval/runs/*.json` is now committed (a `.gitignore` exception). EVAL.md says the
+  improvement curve is generated from the ledger and never hand-drawn; a reviewer has to
+  be able to check the promotion against the numbers that produced it.
+
+**Cost:** 601 live Flash calls for one full iteration — 200 incumbent + 200 candidate
+on the dev sample, 1 Evaluator call, and 100 + 100 on the holdout for the two prompts.
+Worth knowing before re-running: the holdout half is only paid when a candidate has
+already cleared the guards and shown a dev gain.
+
+**Guardrails intact:** #2 (a promotion writes `config/prompts/`, never
+`config/frozen.yaml`), #3 (holdout read only through `holdout_score.py`), #7 (loop is
+offline and extractor-only; `REVISABLE == {"extractor"}` raises `KeyError` for any other
+agent, and no module in `pipeline/` may import the loop — both enforced by tests).
+
+---
+
 ## 2026-08-28 (Fri evening) — Status check + gate decision
 
 **Context:** Original plan called for a Day-7 gate on Aug 27. That didn't happen as a

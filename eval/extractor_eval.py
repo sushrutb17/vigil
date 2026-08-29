@@ -215,12 +215,21 @@ def score_run(run: ExtractorRun, reports: Sequence[ASRSReport]) -> dict[str, flo
     by_acn = {report.acn: report for report in reports}
     expected = [by_acn[p.acn].primary_problem or "<missing>" for p in run.predictions]
     predicted = [p.primary_problem or "<missing>" for p in run.predictions]
-    distinct_expected = len(set(expected))
+    expected_labels = set(expected)
     return {
         **scored,
         "extractor_macro_f1": macro_f1(predicted, expected),
-        "primary_problem_label_diversity": (
-            len(set(predicted)) / distinct_expected if distinct_expected else 0.0
+        # Fraction of the real label space the predictions actually use. Counting
+        # *distinct predicted strings* instead was a bug caught on the first live
+        # run: an unconstrained model emitting 19 unique free-text labels for 8
+        # reports scored 2.33 — maximal "diversity" while being almost entirely
+        # wrong — and a correctly vocabulary-constrained candidate scored 1.00 and
+        # lost to it. Intersecting with the coded vocabulary makes the majority-
+        # label hack score ~1/18 instead, which is what the guard is for.
+        "primary_problem_label_coverage": (
+            len(set(predicted) & expected_labels) / len(expected_labels)
+            if expected_labels
+            else 0.0
         ),
         "parse_coverage": len(run.predictions) / len(reports) if reports else 0.0,
         "sample_size": float(len(reports)),

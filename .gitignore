@@ -13,9 +13,14 @@ data/holdout/
 data/cache/
 
 # Runtime and evaluation output.
-eval/runs/
+eval/runs/*
 artifacts/*
 *.log
+
+# Deliberate exception: the eval ledger. EVAL.md makes this the source of the
+# improvement curve ('never hand-drawn'), and a reviewer has to be able to
+# check the promotion decision against the numbers that produced it.
+!eval/runs/*.json
 
 # Deliberate exception: a committed snapshot of a real --live run over the real
 # ASRS slice. The deployed Cloud Run UI serves this so reviewers see genuine

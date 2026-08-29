@@ -191,7 +191,7 @@ def _format(result: LoopResult) -> str:
         return (
             f"  {label:<26} macro-F1 {metrics['extractor_macro_f1']:.4f}  "
             f"acc {metrics['primary_problem_accuracy']:.4f}  "
-            f"diversity {metrics['primary_problem_label_diversity']:.2f}"
+            f"coverage {metrics['primary_problem_label_coverage']:.2f}"
         )
 
     guard_line = (

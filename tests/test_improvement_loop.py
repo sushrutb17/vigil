@@ -16,7 +16,7 @@ ROOT = Path(__file__).parents[1]
 BASE = {
     "primary_problem_accuracy": 0.40,
     "extractor_macro_f1": 0.30,
-    "primary_problem_label_diversity": 0.80,
+    "primary_problem_label_coverage": 0.80,
     "parse_coverage": 1.0,
     "sample_size": 10.0,
 }
@@ -38,11 +38,11 @@ def test_guard_catches_accuracy_bought_with_macro_f1() -> None:
 
 
 def test_guard_catches_label_collapse() -> None:
-    collapsed = _metrics(extractor_macro_f1=0.35, primary_problem_label_diversity=0.05)
+    collapsed = _metrics(extractor_macro_f1=0.35, primary_problem_label_coverage=0.05)
     result = evaluate_extractor_guards(collapsed, BASE)
     assert not result.passed
-    assert "label_diversity_floor" in result.failures
-    assert "label_diversity_not_collapsed" in result.failures
+    assert "label_coverage_floor" in result.failures
+    assert "label_coverage_not_collapsed" in result.failures
 
 
 def test_guard_passes_a_genuine_improvement() -> None:
@@ -81,6 +81,24 @@ def _perfect() -> list[ExtractionOutput]:
             acn=report.acn,
             event_summary="s",
             primary_problem=report.primary_problem,
+            flight_phase=report.flight_phase,
+        )
+        for report in REPORTS
+    ]
+
+
+def _swapped() -> list[ExtractionOutput]:
+    """Wrong on every row but still inside the coded vocabulary.
+
+    Distinct from ``_all_wrong``: label coverage stays 1.0, so the collapse
+    guards pass and the loop has to reject this on the dev-gain check instead.
+    """
+    flip = {"Aircraft": "Human Factors", "Human Factors": "Aircraft"}
+    return [
+        ExtractionOutput(
+            acn=report.acn,
+            event_summary="s",
+            primary_problem=flip[report.primary_problem],
             flight_phase=report.flight_phase,
         )
         for report in REPORTS
@@ -179,7 +197,8 @@ def test_every_outcome_is_recorded_in_the_ledger(loop_env, monkeypatch) -> None:
     import json
 
     prompt_root, runs_dir = loop_env
-    _stub_runs(monkeypatch, _run_with(_perfect(), "v1"), _run_with(_all_wrong(), "v2"))
+    _stub_runs(monkeypatch, _run_with(_perfect(), "v1"), _run_with(_swapped(), "v2"))
+
     def explode(*args, **kwargs):  # pragma: no cover - must never run
         raise AssertionError("holdout must not be read without a dev gain")
 

@@ -29,8 +29,9 @@ def evaluate_guards(metrics: Mapping[str, float]) -> GuardResult:
 
 #: A candidate may lose this much parse coverage before it counts as degradation.
 COVERAGE_TOLERANCE = 0.05
-#: Floor below which predictions have collapsed toward a single label.
-MIN_LABEL_DIVERSITY = 0.15
+#: Floor below which predictions have collapsed toward a single label. On an
+#: 18-class field, predicting one label everywhere scores ~0.06.
+MIN_LABEL_COVERAGE = 0.15
 
 
 def evaluate_extractor_guards(
@@ -54,12 +55,12 @@ def evaluate_extractor_guards(
     macro_f1_gain = candidate.get("extractor_macro_f1", 0.0) - incumbent.get(
         "extractor_macro_f1", 0.0
     )
-    incumbent_diversity = incumbent.get("primary_problem_label_diversity", 0.0)
-    candidate_diversity = candidate.get("primary_problem_label_diversity", 0.0)
+    incumbent_coverage = incumbent.get("primary_problem_label_coverage", 0.0)
+    candidate_coverage = candidate.get("primary_problem_label_coverage", 0.0)
     checks = {
         "macro_f1_not_traded_for_accuracy": not (accuracy_gain > 0 and macro_f1_gain < 0),
-        "label_diversity_floor": candidate_diversity >= MIN_LABEL_DIVERSITY,
-        "label_diversity_not_collapsed": candidate_diversity >= 0.5 * incumbent_diversity,
+        "label_coverage_floor": candidate_coverage >= MIN_LABEL_COVERAGE,
+        "label_coverage_not_collapsed": candidate_coverage >= 0.5 * incumbent_coverage,
         "parse_coverage_not_degraded": candidate.get("parse_coverage", 0.0)
         >= incumbent.get("parse_coverage", 0.0) - COVERAGE_TOLERANCE,
         "scored_on_same_sample": candidate.get("sample_size") == incumbent.get("sample_size"),
