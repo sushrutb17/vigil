@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import random
+import sys
 from collections import Counter
 from collections.abc import Callable, Sequence
 from dataclasses import asdict
@@ -202,6 +203,17 @@ def main() -> None:
         "naming stand-in (needs live Gemini credentials)",
     )
     parser.add_argument(
+        "--fail-agent",
+        action="append",
+        default=[],
+        choices=["precedent", "risk", "brief_writer", "critic"],
+        metavar="NAME",
+        help="fault injection for the failure-tolerance demo: make this coordinator "
+        "sub-agent raise instead of calling the model. Repeatable. Requires --live. "
+        "Killing one leaves a DEGRADED brief; killing two of three falls back to the "
+        "deterministic template. Never use for a run whose output will be published.",
+    )
+    parser.add_argument(
         "--firestore",
         action="store_true",
         help="persist reports/clusters/agent_log/escalations to Firestore instead of "
@@ -210,6 +222,17 @@ def main() -> None:
     args = parser.parse_args()
     if bool(args.demo) == bool(args.dataset):
         parser.error("pass exactly one of --demo or --dataset PATH")
+    if args.fail_agent and not args.live:
+        parser.error("--fail-agent only affects the live coordinator; pass --live too")
+    if args.fail_agent:
+        # Loud and on stderr: an injected run must never be mistaken for a real
+        # one when someone finds its output later. The DEGRADED banner in the
+        # brief says a sub-agent failed; only this line says we caused it.
+        print(
+            f"!! FAULT INJECTION ACTIVE: {', '.join(sorted(args.fail_agent))} will raise. "
+            "This run's briefs are a failure-tolerance demonstration, not real output.",
+            file=sys.stderr,
+        )
     policy = FrozenRiskPolicy.from_path(Path("config/frozen.yaml"))
     reports = (
         demo_reports()
@@ -244,6 +267,7 @@ def main() -> None:
             "model": models["flash"],
             "brief_writer_model": models["brief_writer"],
             "store": store,
+            "fail_agents": frozenset(args.fail_agent),
         }
     assessments = run_batch(reports, policy=policy, store=store, assess_cluster=assess_cluster)
     by_acn = {report.acn: report for report in reports}

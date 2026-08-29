@@ -77,6 +77,31 @@ def _call_or_none(fn: Callable[[], str]) -> str | None:
         return None
 
 
+class InjectedFailure(RuntimeError):
+    """Raised in place of a sub-agent call by ``--fail-agent``.
+
+    Exists so the 2-of-3 fan-out tolerance can be *demonstrated* rather than
+    asserted. ARCHITECTURE.md calls for a "kill one sub-agent -> DEGRADED brief"
+    demo beat, and waiting for a real Gemini outage to record it is not a plan.
+
+    Deliberately a real exception raised at the call site rather than a branch
+    that fabricates a None: it travels the exact path a genuine API failure
+    takes, through the same ``_call_or_none`` and the same failure accounting,
+    so what the demo shows is the real handler and not a simulation of it.
+    """
+
+
+def _guarded(name: str, fail_agents: frozenset[str], fn: Callable[[], str]) -> Callable[[], str]:
+    """Wrap a sub-agent call so an injected name fails instead of running."""
+
+    def call() -> str:
+        if name in fail_agents:
+            raise InjectedFailure(f"{name} failure injected via --fail-agent")
+        return fn()
+
+    return call
+
+
 def _precedent_candidates(
     assessment: ClusterAssessment, batch: Sequence[ASRSReport], *, limit: int
 ) -> list[ASRSReport]:
@@ -140,6 +165,7 @@ def live_draft_brief(
     store: TriageStore,
     max_evidence: int = 20,
     max_precedent_candidates: int = 30,
+    fail_agents: frozenset[str] = frozenset(),
 ) -> str:
     """Draft a cited investigator brief for one escalated cluster.
 
@@ -191,8 +217,12 @@ def live_draft_brief(
         precedent_future = (
             pool.submit(
                 _call_or_none,
-                lambda: run_llm_agent(
-                    precedent, message=precedent_message, model=model, store=store
+                _guarded(
+                    "precedent",
+                    fail_agents,
+                    lambda: run_llm_agent(
+                        precedent, message=precedent_message, model=model, store=store
+                    ),
                 ),
             )
             if candidates
@@ -200,12 +230,23 @@ def live_draft_brief(
         )
         risk_future = pool.submit(
             _call_or_none,
-            lambda: run_llm_agent(risk, message=risk_message, model=model, store=store),
+            _guarded(
+                "risk",
+                fail_agents,
+                lambda: run_llm_agent(risk, message=risk_message, model=model, store=store),
+            ),
         )
         brief_future = pool.submit(
             _call_or_none,
-            lambda: run_llm_agent(
-                brief_writer, message=brief_writer_message, model=brief_writer_model, store=store
+            _guarded(
+                "brief_writer",
+                fail_agents,
+                lambda: run_llm_agent(
+                    brief_writer,
+                    message=brief_writer_message,
+                    model=brief_writer_model,
+                    store=store,
+                ),
             ),
         )
         precedent_text = precedent_future.result() if precedent_future is not None else None
@@ -255,12 +296,40 @@ def live_draft_brief(
     sections.append("## Recommended Brief\n" + (brief_text or fallbacks["## Recommended Brief"]))
     draft = "\n\n".join(sections)
 
+    # The Critic is injectable as well. Losing it is the more interesting
+    # failure to show: the deterministic strip_uncited_claims below still runs,
+    # so the citation guarantee holds with the LLM reviewer entirely absent.
     critic_text = _call_or_none(
-        lambda: run_llm_agent(critic, message=draft, model=model, store=store)
+        _guarded(
+            "critic",
+            fail_agents,
+            lambda: run_llm_agent(critic, message=draft, model=model, store=store),
+        )
     )
     # The Precedent agent legitimately cites reports outside the cluster, so the
     # allow-list is the cluster's members plus the candidates it was actually
     # given. Anything else in the draft was invented.
     allowed = {*assessment.member_acns, *(report.acn for report in candidates)}
     gated = strip_uncited_claims(critic_text or draft, allowed_acns=allowed).cleaned_brief
-    return _backfill_empty_sections(gated, fallbacks)
+    return _reassert_degraded(_backfill_empty_sections(gated, fallbacks), degraded=bool(failures))
+
+
+def _reassert_degraded(brief: str, *, degraded: bool) -> str:
+    """Restore the DEGRADED banner if the LLM critic dropped it.
+
+    The critic's response is used verbatim as the brief, so until now the banner
+    survived only if the model chose to echo it — and CRITIC_INSTRUCTION asks it
+    to preserve *headings*, which DEGRADED is not. A reviewer would have had no
+    way to tell a partial-failure brief from a clean one.
+
+    Whether a sub-agent failed is a fact the orchestrator already knows for
+    certain. Deriving the banner from that fact instead of from the model's
+    memory is the same move as ``_backfill_empty_sections``: let the LLM write
+    the prose, but never let it be the only thing standing between a reviewer
+    and a safety-relevant marker.
+    """
+    if not degraded or "DEGRADED" in brief:
+        return brief
+    lines = brief.splitlines()
+    insert_at = 1 if lines and lines[0].startswith("# ") else 0
+    return "\n".join([*lines[:insert_at], "", "DEGRADED", *lines[insert_at:]])
