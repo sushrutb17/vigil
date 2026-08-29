@@ -18,6 +18,55 @@ Entry format:
 
 ---
 
+## 2026-08-29 ~15:45 ET — Cowork session (relay pickup + Phase 1 close-out)
+- Last commit: 1504d2a Restore executable bit on infra/deploy.sh (lost in previous edit)
+- Finished: Picked up per Prompt B — tree was already green (14/14 tests, ruff
+  clean; the code changes the ~10:30 handoff described as "uncommitted" had in
+  fact already been committed by a session between then and now, commits
+  8d4a032 through 62cbe86). Only two doc files were genuinely uncommitted
+  (docs/HANDOFF.md, docs/KICKOFF_PROMPTS.md) — committed those, gitignored
+  the local .agents/.claude/.vscode harness dirs. Then did the next unblocked
+  Prompt A item (step 4): UI Approve/Reject now persists — TriageStore gained
+  `set_cluster_status` (merge update) and `put_rejection`
+  (rejections/, negative examples per ARCHITECTURE.md); UI picks
+  FirestoreStore when GOOGLE_CLOUD_PROJECT is set. Caught and fixed a
+  consequence before it could bite: infra/deploy.sh still deployed vigil-ui
+  with zero IAM roles and no GOOGLE_CLOUD_PROJECT, which would have made
+  Approve/Reject silently no-op in production — vigil-ui-run now gets
+  roles/datastore.user and the env var. PHASES.md Phase 1's last open row is
+  now Done. 17/17 tests pass, ruff clean, all committed.
+- Next action: Phase 4 deploy is the only remaining unblocked critical-path
+  item (Prompt A step 5) and it needs `gcloud`/network, which this session's
+  device_bash does not have. Run in your own Mac terminal, repo root:
+  ```
+  gcloud auth login
+  gcloud config set project vigil-hackathon
+  gcloud services enable run.googleapis.com cloudbuild.googleapis.com \
+      artifactregistry.googleapis.com secretmanager.googleapis.com
+  export GOOGLE_CLOUD_PROJECT=vigil-hackathon
+  export GOOGLE_API_KEY=$(grep GOOGLE_API_KEY .env | cut -d'=' -f2-)
+  make deploy
+  ```
+  Then `gcloud run jobs execute vigil-batch --project vigil-hackathon --region us-central1 --wait`
+  (deploy.sh prints this exact command at the end too). After that: open the
+  printed UI URL, click Approve/Reject once each to verify Firestore actually
+  receives the writes (check the Firestore console for clusters/ status
+  fields and a new rejections/ doc) — that live check is still unverified,
+  only unit-tested so far. Once deploy is confirmed, PHASES.md's five Phase 4
+  rows can flip to Done in the same commit as whatever session verifies them.
+- Watch out: (1) `make deploy` runs `infra/deploy.sh`, which is idempotent on
+  re-run (checks `describe` before `create` for service accounts/secrets) but
+  NOT dry-run-safe — it will actually create billed Cloud Run
+  services/secrets the first time. (2) The batch job (`vigil-batch`) runs
+  `--demo --live --firestore` against the bundled 6-report fixture, not the
+  real 5k slice (data/raw is gitignored and never in the image) — that's
+  correct and intentional, not a bug to fix. (3) Deadline is Mon Aug 31, 8:00
+  PM ET treat 6:00 PM as the real cutoff — deploy + E2E verify + video are
+  still all ahead of the failure-tolerance demo and the Devpost draft
+  (Phases 6/7), so don't let deploy prep expand past what's needed to get a
+  URL.
+
+
 ## 2026-08-29 ~10:30 ET — Cowork session (planning, no code)
 - Last commit: 6aab879 Mark real data download + holdout lock done (Phase 2)
 - Finished: Multi-account working model decided (relay, not parallel lanes). Added
