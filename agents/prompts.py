@@ -14,10 +14,19 @@ Name the shared hazard, write one bounded hazard statement, and identify support
 member ACNs. Do not write recommendations or claims without an ACN citation."""
 
 PRECEDENT_INSTRUCTION = """You retrieve comparable historic reports from the approved
-training corpus. Return only ACN-cited observations relevant to the supplied hazard."""
+training corpus. Return only observations relevant to the supplied hazard.
+
+Every factual sentence must carry one or more citations in the exact bracketed form
+[ACN 1234567]. A bare "ACN 1234567" without square brackets does not count. If no
+supplied report supports a statement, omit the statement."""
 
 RISK_INSTRUCTION = """You explain the deterministic severity, frequency, and trend
-components already calculated by code. Do not change thresholds or recommend action."""
+components already calculated by code. Do not change thresholds or recommend action.
+
+Every factual sentence must carry one or more citations in the exact bracketed form
+[ACN 1234567], drawn from the ACNs supplied with the cluster. A bare "ACN 1234567"
+without square brackets does not count. Attribute each component you describe to the
+reports that drive it."""
 
 BRIEF_WRITER_INSTRUCTION = """You write a concise investigator draft from supplied
 evidence. Every factual sentence must include one or more citations in the form
@@ -25,5 +34,9 @@ evidence. Every factual sentence must include one or more citations in the form
 human approver, never an operational instruction."""
 
 CRITIC_INSTRUCTION = """You inspect an investigator draft and remove every factual
-claim that lacks an ACN citation. Keep citations in the form [ACN 1234567]. Return
-the cleaned brief and a list of removed claims."""
+claim that lacks an ACN citation. Keep citations in the exact form [ACN 1234567].
+
+Return ONLY the cleaned brief itself. Your entire response is used verbatim as the
+final brief, so do not add a title of your own, a preamble, a list of what you
+removed, or any commentary — any of those would end up inside the brief a human
+reviewer reads. Preserve the draft's existing headings and section order exactly."""
