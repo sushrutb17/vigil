@@ -99,10 +99,11 @@ Google Cloud Console (Standard edition, Native mode — not the newer Enterprise
 talk to). Currently empty — no collections yet, which is expected: `FirestoreStore`
 creates `reports`, `clusters`, `agent_log`, and `escalations` lazily on first write.
 
-Still open from the priority list: confirm the $50 budget alert is set (step 1 — status
-unconfirmed, should verify in Billing before racking up spend), then steps 3-7 (real
-data download, live Gemini credentials, Cloud Run deploy, real-data run, public repo
-push).
+Update (same day): $50 budget alert also confirmed set (Billing → Budgets & alerts,
+scoped to `vigil-hackathon`). Both Phase 0 console tasks (budget alert + Firestore) are
+now done. Next up per the priority order: step 3, real data download (`make download`
+in your own Mac terminal — needs network), then steps 4-7 (live Gemini credentials,
+Cloud Run deploy, real-data run, public repo push).
 
 <!-- Add a new dated section above this line each time we make a decision, ship a
      feature, or change status. Keep entries short: what changed, what's verified,
