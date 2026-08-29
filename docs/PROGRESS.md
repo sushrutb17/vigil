@@ -785,6 +785,86 @@ project the exit code carries almost no information. Every execution reported
 success while two of three parallel agents produced output that was always
 discarded. What can be trusted is the artifact that reached Firestore.
 
+## 2026-08-29 (Sat, cont'd 13) — A citation gate that checked shape, not provenance
+
+Regenerated `artifacts/demo_run.json` on the real 5k slice. The run itself was
+clean: 23 clusters, 4 escalated, all four with every section populated including
+Precedent, no DEGRADED banners, no stray headings. The empty-section fix from
+earlier today held, and Precedent produces real content on real data exactly as
+predicted.
+
+Then I read one of the briefs instead of just counting its sections.
+
+The top cluster's `## Risk Assessment` cited `[ACN 1000001]` through
+`[ACN 1000005]`. That cluster's members are 1044401, 1461959, 1640441, 1748192
+and 1799467. Checked the cited IDs against the source parquet: they appear in
+**none of the 38,655 reports**. The model fabricated them, and the deterministic
+citation gate — the thing guardrail #4 exists to enforce — kept every one.
+
+`ACN_CITATION` is `\[ACN\s+\d{4,}\]`. Any four-or-more-digit number satisfies
+it. The gate was enforcing *looks cited*, never *is sourced*. A hallucinated ID
+is indistinguishable from a real one to a regex.
+
+**A fabricated citation is worse than a missing one.** An uncited claim gets
+stripped and disappears. A fabricated citation survives and carries false
+authority into a document a human reviewer is meant to trust — and an
+investigator who pulls ACN 1000001 gets an unrelated report, or nothing.
+
+The root cause was self-inflicted, from this morning's `f2fe88a`. That commit
+fixed Risk producing output the gate always deleted, by telling the agent to
+cite "the ACNs supplied with the cluster." But `risk_message` supplies only
+`severity=..., frequency=..., trend=..., total=..., member count=N` — no ACNs at
+all, then or now. Told to cite and given nothing to cite from, the model invented
+the most obvious placeholder sequence there is: 1000001, 1000002, 1000003. Which
+happens to be exactly the demo fixture's ACN scheme (`1000000 + index`).
+
+Two fixes, because either alone is insufficient. Supplying the ACNs removes the
+incentive to invent, but nothing stops a model from inventing anyway. Validating
+provenance catches invention, but leaving the agent with nothing to cite would
+just mean everything gets stripped again.
+
+1. `risk_message` now supplies the cluster's member ACNs.
+2. `strip_uncited_claims` takes an optional `allowed_acns` allow-list. Invalid
+   citations are removed *surgically* — a claim that mixes genuine and invented
+   sources keeps the genuine ones and loses only the fabrications, rather than
+   being deleted wholesale — and a claim whose every source was invented is
+   dropped, since nothing supports it.
+
+The allow-list is deliberately **members plus the precedent candidates actually
+supplied to the agent**, not members alone. Precedent's entire job is to cite
+comparable reports from *outside* the cluster; a members-only allow-list would
+delete correct precedent work as fabrication. Verified this distinction against
+the parquet rather than assuming it: of the out-of-cluster ACNs in the artifact,
+1822957 / 1837816 / 1853717 / 1870632 / 1872334 / 1874093 / 1119182 / 1681937 /
+1777963 / 1814775 / 988233 are all real reports, while every 10000xx is not. The
+gate now cuts exactly the second group.
+
+Three of the four escalated briefs in the current artifact contain fabricated
+ACNs, so that file must be regenerated before it goes anywhere near the demo.
+
+Also fixed the reason the run failed the first time: `make run-live` never loaded
+`.env`, so a forgotten `set -a; source .env; set +a` failed inside ADK's first
+Analyst call, repeated once per cluster, several hundred lines of async traceback
+around one useful sentence — and only after the deterministic stages had already
+spent the time clustering 5,000 reports. The Makefile now loads `.env` when it
+exists and guards the live targets with a one-line `require-key` check.
+
+Verification snippet worth keeping, for checking any future artifact:
+
+```python
+import json
+from agents.critic import strip_uncited_claims
+for c in json.load(open("artifacts/demo_run.json")):
+    allowed = c["member_acns"]  # plus precedent candidates, for live briefs
+    r = strip_uncited_claims(c["brief"], allowed_acns=allowed)
+    if r.fabricated_citations:
+        print(c["name"], sorted(r.fabricated_citations))
+```
+
+Two bugs in one day found the same way, and neither was visible from an exit
+code, a test, or a section count. Both needed someone to read the actual output
+and ask whether the words were true.
+
 <!-- Add a new dated section above this line each time we make a decision, ship a
      feature, or change status. Keep entries short: what changed, what's verified,
      what's still open. -->

@@ -18,6 +18,54 @@ Entry format:
 
 ---
 
+## 2026-08-29 ~19:00 ET — Claude Code (artifact regenerated; found fabricated citations)
+- Last commit: see `git log -1`
+- Finished:
+  - `make run-live && make artifact` ran clean on the real 5k slice: 23 clusters,
+    4 escalated, all 4 with fully populated `## Hazard` / `## Precedent` /
+    `## Risk Assessment` / `## Recommended Brief`, no DEGRADED, no stray H1.
+    Precedent produces genuine content on real data, as expected.
+  - **Then found a worse bug by reading the brief.** `## Risk Assessment` cited
+    `[ACN 1000001]`-`[ACN 1000005]`; the cluster's members were 1044401,
+    1461959, 1640441, 1748192, 1799467. Those IDs are in NONE of the 38,655
+    reports (checked against the parquet). The model fabricated them and the
+    gate kept them, because `ACN_CITATION` matches any 4+ digit number — it
+    validated *shape*, never *provenance*.
+  - Root cause was self-inflicted: `f2fe88a` told Risk to cite "the ACNs
+    supplied with the cluster" while `risk_message` supplied only
+    `member count=N` and no ACNs, so the model invented placeholders.
+  - Fixed both halves: `risk_message` now supplies the member ACNs, and
+    `strip_uncited_claims` takes an `allowed_acns` allow-list. Invalid
+    citations are cut surgically (a claim keeps genuine sources, loses only
+    invented ones); a claim whose every source was invented is dropped.
+    Allow-list = cluster members + the precedent candidates actually supplied,
+    because Precedent legitimately cites outside the cluster. Verified against
+    the parquet that every such out-of-cluster ACN in the artifact is real.
+  - `make run-live` also could not find the API key: the Makefile never loaded
+    `.env`, so it died inside ADK's first Analyst call, once per cluster, after
+    already clustering 5,000 reports. Makefile now loads `.env` and has a
+    `require-key` guard.
+  - 26 tests pass, ruff clean.
+- Next action:
+  1. **Regenerate the artifact again** — `artifacts/demo_run.json` on disk is
+     the pre-fix run and 3 of its 4 escalated briefs contain fabricated ACNs.
+     Do NOT deploy it. `make run-live && make artifact` (now works without
+     sourcing .env), then re-verify with the snippet in PROGRESS.md before
+     committing and redeploying `vigil-ui`.
+  2. Click Approve/Reject on the hosted URL, confirm Firestore receives them.
+  3. Then: Cloud Scheduler trigger, DEGRADED demo path, Phase 5 loop (zero
+     code, and per explicit user directive NOT to be cut).
+- Watch out:
+  - The 5k slice has one 629-member megacluster ("Aircraft Maintenance
+    Installation Errors"), whose deterministic brief is an 18,000-character
+    wall of ~630 ACN citations. Not wrong, but it looks terrible in the UI and
+    a judge will see it. Consider capping the citation list in
+    `run_batch.draft_brief`, or excluding that cluster from the demo view.
+  - Unbracketed ACNs inside the Analyst's `hazard_statement` prose (e.g.
+    "(ACN 1121783, ...)") are NOT validated by the gate — only bracketed
+    citations are. They duplicate the bracketed list, so low risk, but know it.
+  - The batch job image is behind: it predates both today's orchestrate fixes.
+
 ## 2026-08-29 ~18:15 ET — Claude Code (verified the prompt fix in the cloud; fixed the empty-section class of bug)
 - Last commit: `08adc32` Never let a brief section render as a bare heading
 - Finished:

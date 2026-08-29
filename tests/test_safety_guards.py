@@ -17,6 +17,75 @@ def test_critic_strips_uncited_claims() -> None:
     assert result.removed_claims == ("Unsupported conclusion",)
 
 
+def test_gate_removes_citations_to_reports_not_in_the_cluster() -> None:
+    """A fabricated citation must not survive just because it is well-formed.
+
+    ACN_CITATION matches any 4+ digit number, so before provenance checking the
+    gate enforced "looks cited", not "is sourced". A Risk agent that had been told
+    to cite but given no ACNs invented [ACN 1000001]..[ACN 1000005], and all of it
+    passed into a brief presented to a human reviewer. That is worse than an
+    uncited claim: an uncited sentence is stripped and disappears, while a
+    fabricated citation survives carrying false authority.
+    """
+    brief = (
+        "# Draft\n"
+        "Real and invented sources mixed [ACN 1044401] [ACN 1000001]\n"
+        "Entirely invented [ACN 1000002] [ACN 1000003]\n"
+    )
+    result = strip_uncited_claims(brief, allowed_acns=["1044401"])
+
+    # The genuine source is kept; only the invented one is cut out of the line.
+    assert "[ACN 1044401]" in result.cleaned_brief
+    assert "1000001" not in result.cleaned_brief
+    # A claim whose every source was invented has nothing supporting it.
+    assert "Entirely invented" not in result.cleaned_brief
+    assert result.removed_claims == ("Entirely invented [ACN 1000002] [ACN 1000003]",)
+    assert set(result.fabricated_citations) == {"1000001", "1000002", "1000003"}
+    assert not result.passed
+
+
+def test_gate_without_an_allowlist_still_checks_citation_shape() -> None:
+    """Callers that cannot supply the cluster's ACNs keep the original behaviour
+    rather than silently dropping every citation as unverifiable."""
+    brief = "# Draft\nSupported [ACN 1234567]\nUnsupported"
+    result = strip_uncited_claims(brief)
+    assert result.cleaned_brief == "# Draft\nSupported [ACN 1234567]"
+    assert result.fabricated_citations == ()
+
+
+def test_risk_agent_is_given_the_acns_its_instruction_tells_it_to_cite(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """RISK_INSTRUCTION says to cite "the ACNs supplied with the cluster". If none
+    are supplied the model invents plausible ones, which is exactly what happened
+    on the first real 5,000-report run."""
+    from agents import prompts
+
+    assert "ACNs supplied with the cluster" in prompts.RISK_INSTRUCTION
+
+    sent: dict[str, str] = {}
+
+    def fake_run_llm_agent(agent, *, message, model, store):  # noqa: ANN001, ANN202, ARG001
+        sent[agent] = message
+        return message if agent == "critic" else "Fine [ACN 1000001]."
+
+    monkeypatch.setattr(orchestrate, "run_llm_agent", fake_run_llm_agent)
+    orchestrate.live_draft_brief(
+        _assessment(),
+        demo_reports()[:2],
+        demo_reports()[:2],
+        precedent="precedent",
+        risk="risk",
+        brief_writer="brief_writer",
+        critic="critic",
+        model="fake",
+        brief_writer_model="fake",
+        store=MemoryStore(),
+    )
+
+    assert "[ACN 1000001]" in sent["risk"] and "[ACN 1000002]" in sent["risk"]
+
+
 def test_brief_contributing_prompts_demand_the_bracketed_citation_form() -> None:
     """Every agent whose prose flows into a brief must be told the exact bracketed
     citation format the deterministic gate matches.

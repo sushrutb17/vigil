@@ -167,7 +167,12 @@ def live_draft_brief(
         f"severity={assessment.risk.severity:.2f}, frequency={assessment.risk.frequency:.2f}, "
         f"trend={assessment.risk.trend:.2f}, total={assessment.risk.total:.2f}, "
         f"member count={len(assessment.member_acns)}. Explain what these mean in plain "
-        "language. Do not change the numbers or recommend action."
+        "language. Do not change the numbers or recommend action.\n\n"
+        # RISK_INSTRUCTION tells this agent to cite "the ACNs supplied with the
+        # cluster". They were never actually supplied, so the model invented the
+        # obvious placeholder sequence [ACN 1000001]..[ACN 1000005] and the gate,
+        # which only checked citation shape, kept all of it. Supply them.
+        f"Cite only these ACNs, which are the reports in this cluster: {citations}"
     )
     evidence_sample = members[:max_evidence]
     evidence = "\n".join(f"[ACN {r.acn}] {r.narrative}" for r in evidence_sample)
@@ -253,5 +258,9 @@ def live_draft_brief(
     critic_text = _call_or_none(
         lambda: run_llm_agent(critic, message=draft, model=model, store=store)
     )
-    gated = strip_uncited_claims(critic_text or draft).cleaned_brief
+    # The Precedent agent legitimately cites reports outside the cluster, so the
+    # allow-list is the cluster's members plus the candidates it was actually
+    # given. Anything else in the draft was invented.
+    allowed = {*assessment.member_acns, *(report.acn for report in candidates)}
+    gated = strip_uncited_claims(critic_text or draft, allowed_acns=allowed).cleaned_brief
     return _backfill_empty_sections(gated, fallbacks)

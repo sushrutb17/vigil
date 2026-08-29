@@ -122,7 +122,7 @@ def draft_brief(assessment: ClusterAssessment) -> str:
             "- This sentence is deliberately uncited and must be removed.",
         ]
     )
-    return strip_uncited_claims(raw).cleaned_brief
+    return strip_uncited_claims(raw, allowed_acns=assessment.member_acns).cleaned_brief
 
 
 def demo_reports() -> list[ASRSReport]:
