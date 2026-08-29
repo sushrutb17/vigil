@@ -15,14 +15,14 @@ Diagram source: `docs/asrs-agent-architecture.mermaid` (export PNG for README + 
 | 3→4 | **Threshold gate** — risk score vs `config/frozen.yaml` | Plain code, not an agent | — |
 | 4 | **Coordinator** → **Precedent** (RAG over corpus) ∥ **Risk** (matrix scoring) ∥ **Brief Writer** | `ParallelAgent` with 3 sub-agents | Flash / Flash / Pro |
 | 5a | **Critic** — strip any claim without an ACN citation; bounce brief back once max | `LlmAgent` + deterministic citation regex check | Flash |
-| 5b | **Human gate** — approve / reject in Streamlit UI | UI + Firestore write | — |
+| 5b | **Human gate** — approve / reject in Streamlit UI; approve also exports the brief as a Markdown download (workflow completes with an artifact in hand — still nothing auto-sent) | UI + Firestore write | — |
 
 Pipeline wrapper: `SequentialAgent` for 1a→1b; stages orchestrated by `pipeline/run_batch.py` (a Cloud Run job), not by a mega-agent. Orchestration logic that can be plain Python **should be** plain Python — say this in the writeup; judges score architectural discipline.
 
 ## State & memory (Firestore)
 - `reports/` — extracted records (keyed by ACN)
 - `clusters/` — cluster id, members, analyst output, risk score, status: `new | escalated | briefed | approved | rejected`
-- `escalations/` — idempotency ledger: a re-run never re-alerts on an already-escalated cluster (match by member-set overlap > 0.6)
+- `escalations/` — idempotency ledger: a re-run never re-alerts on an already-escalated cluster (match by member-set overlap > 0.6); the same ledger drives the UI's **"NEW THIS RUN"** badge
 - `rejections/` — human-rejected clusters stored as negative few-shot examples injected into future Analyst prompts
 - `agent_log/` — every call: agent, model, tokens, latency, input hash. This is the observability/audit story.
 
@@ -47,4 +47,5 @@ Risk thresholds (`config/frozen.yaml`) are never self-tuned. A safety system tha
 ## Deploy
 - **Cloud Run service:** Streamlit UI (`ui/streamlit_app.py`), min instances 0
 - **Cloud Run job:** `pipeline/run_batch.py`, triggered manually for the demo ("simulate this week's report drop")
+- **Cloud Scheduler:** weekly trigger on the batch job — makes "runs in the background, asynchronously" literal rather than claimed; show the trigger config briefly in the video's console segment
 - Secrets via env; budget alert at $50; everything off after demo recording

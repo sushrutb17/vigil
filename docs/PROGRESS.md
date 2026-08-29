@@ -132,6 +132,51 @@ Next per the priority order: live Gemini credentials (Google AI Studio API key �
 pass against the real data (Phase 2, blocked on nothing else now), then Cloud Run
 deploy, then the public GitHub push (deliberately last).
 
+## 2026-08-29 (Sat, cont'd 2) — Judging-rubric review adopted into scope
+
+Reviewed the whole plan against the published judging rubric (Devpost rules page +
+the organizers' "How to Win the All Things Agentic Hackathon: Judging Criteria Live
+Q&A" session). Rubric facts, verified against the rules page today: **Stage One is
+pass/fail** (no live GCP proof = eliminated); Stage Two is Innovation & Operational
+Utility **40%** ("Is the 'Twist' present?"), Architectural Discipline **30%** ("your
+engineering decisions, not just your ability to call an API"), Demo & Production
+Readiness **30%** ("undeniable proof of execution"); Taskmaster judges assess
+whether the agent "intercepts and completes a multi-step background workflow";
+bonus stage allows +0.2 per extra Google model up to 0.6.
+
+**User directive:** incorporate all review recommendations — value wins over the
+time budget. The BUILD_PLAN cut list still exists but is now last-resort only.
+
+**Adopted (each is now a PHASES.md item or a doc edit):**
+1. Live path (Phases 3–4) stays top priority — everything else is worthless if
+   Stage One fails. New explicit live-credential smoke-test item (model IDs were
+   doc-verified 2026-08-21 but never exercised).
+2. Approve/Reject persistence elevated: best story-per-hour item (state management
+   for the 30% criterion + learning-from-human-rejections for the 40% one).
+3. "The Twist" named explicitly in the Devpost description and the video close —
+   the twist is inverted: restraint made mechanical (no-LLM clustering, frozen
+   thresholds, locked holdout, citation critic, the caught reward-hack).
+4. Cloud Scheduler weekly trigger on the batch job (new Phase 4 item) — makes the
+   hackathon's "runs in the background, asynchronously" tagline literal.
+5. Analyst-value UI touches (new Phase 6 items): "NEW THIS RUN" badge (surfaces
+   the existing escalation-ledger diff) and Approve → Markdown brief download
+   (workflow completes with an artifact in hand; guardrail #6 intact — nothing
+   auto-sent). Trend sparkline recorded as an explicit last-in-line stretch.
+6. ASRS institutional-mirror framing in video + description: ASRS takes 100k+
+   reports/yr, two expert analysts screen each within 3 working days, and the real
+   output is an Alert Message to organizations in authority — VIGIL mirrors that
+   exact triage→alert workflow (asrs.arc.nasa.gov + NTRS doc 20210023200).
+
+**Explicitly rejected, on purpose:** chasing Veo/Lyria model bonuses or the
+Multimodal UX side prize (forcing them into a safety-triage tool costs
+30%-criterion points to gain bonus decimals); full-corpus scale-up; any new agent
+types. Gemma stays a stretch-only bonus.
+
+Docs touched: PHASES.md (new/annotated items + footer addendum), SUBMISSION.md
+(rubric section + description/video sub-items), DEMO_SCRIPT.md (ASRS caption,
+scheduler shot, badge, download ending, twist line in the close), ARCHITECTURE.md
+(scheduler, badge, brief export). No code changed in this session-segment.
+
 <!-- Add a new dated section above this line each time we make a decision, ship a
      feature, or change status. Keep entries short: what changed, what's verified,
      what's still open. -->

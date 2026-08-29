@@ -63,7 +63,7 @@ every feature below has to satisfy), `DATA.md` / `EVAL.md` / `DEMO_SCRIPT.md` /
 | `MemoryStore` w/ idempotency (Jaccard overlap > 0.6 on escalations) | ✅ Done | |
 | Test suite + lint | ✅ Done | 14/14 tests pass, ruff clean — verified 2026-08-28 |
 | Streamlit UI: cluster browser, brief view (`ui/streamlit_app.py`) | ✅ Done | Demo-fixture mode only |
-| UI Approve/Reject persists decisions to store as rejections/negative examples | ⬜ Not Started | Buttons currently only set local `st.session_state` — nothing written to `MemoryStore`/Firestore. Architecture doc requires `rejections/` collection feeding future Analyst prompts. |
+| UI Approve/Reject persists decisions to store as rejections/negative examples | ⬜ Not Started | Buttons currently only set local `st.session_state` — nothing written to `MemoryStore`/Firestore. Architecture doc requires `rejections/` collection feeding future Analyst prompts. **Elevated 2026-08-29:** best story-per-hour item — one click on video evidences state management (30% rubric criterion) and learning-from-human-rejections (40% criterion). |
 
 ---
 
@@ -87,6 +87,7 @@ every feature below has to satisfy), `DATA.md` / `EVAL.md` / `DEMO_SCRIPT.md` /
 | `agents/prompts.py` (agent instructions) | 🔶 Partial | Written, never evaluated for quality against real reports |
 | `agents/runtime.py` (`call_with_observability`: retry+backoff, JSON repair, `agent_log`) | 🔶 Partial | Written, never exercised against a live model call |
 | `pipeline/embeddings.py` real Gemini embedding call | 🔶 Partial | Written, never executed — needs live credentials |
+| Live credential smoke test — one real `LlmAgent` call + one embedding call; re-verify `gemini-3.7-flash` / `gemini-embedding-2` still resolve | ⬜ Not Started | Added 2026-08-29: IDs were doc-verified 2026-08-21 but never exercised. A dead model ID discovered on deploy day would be catastrophic — run this before any Cloud Run deploy. |
 | **Wire the live agent graph into `pipeline/run_batch.py`** | ⬜ Not Started | Right now `run_batch.py` only ever uses the deterministic stand-ins from Phase 1, even in an "authenticated" run — this wiring doesn't exist yet. This is the single biggest gap between what the architecture doc describes and what the code does. |
 | Extractor eval vs coded fields (`eval/metrics.py`) | ⬜ Not Started | 🚫 Blocked by: real data + live extractor |
 | Dedup eval vs Report-2 pairs | ⬜ Not Started | 🚫 Blocked by: real data + live dedup |
@@ -104,6 +105,7 @@ every feature below has to satisfy), `DATA.md` / `EVAL.md` / `DEMO_SCRIPT.md` /
 | `infra/deploy.sh` | 🔶 Partial | Written, never run |
 | Cloud Run UI service deployed | ⬜ Not Started | 🚫 Blocked by: Firestore instance (Phase 0), live credentials (Phase 3) |
 | Cloud Run batch job deployed | ⬜ Not Started | 🚫 Blocked by: same |
+| Cloud Scheduler weekly trigger for the batch job | ⬜ Not Started | Added 2026-08-29 (rubric alignment): makes the hackathon's "agents that run in the background… asynchronously" tagline literal; Taskmaster judges assess whether the agent *intercepts* a background workflow. One `gcloud scheduler jobs create`; show the trigger config ~3s in the video's console segment. Human gate stays terminal. |
 | End-to-end live run on Cloud Run against real data | ⬜ Not Started | This is the actual "deployed on Google Cloud" proof Devpost requires |
 
 ---
@@ -126,6 +128,9 @@ every feature below has to satisfy), `DATA.md` / `EVAL.md` / `DEMO_SCRIPT.md` /
 | `DEGRADED` banner recognized/preserved by critic | ✅ Done | `agents/critic.py` |
 | Parallel fan-out partial-failure handling (2-of-3 sub-agents survive → `DEGRADED` brief) | ⬜ Not Started | Can't exist yet — the coordinator isn't wired into `run_batch.py` at all (Phase 3) |
 | Resumable batch job (skip ACNs already processed) | 🔶 Partial | `put_report` uses `setdefault` so a re-run won't overwrite, but there's no skip-before-reprocessing logic, so a re-run still redoes clustering/scoring work |
+| UI: "NEW THIS RUN" badge on clusters | ⬜ Not Started | Added 2026-08-29: analysts care about *emerging* patterns; the escalation-idempotency ledger already computes member-set overlap vs prior runs — this surfaces existing state in the UI, no new pipeline logic |
+| UI: Approve → download brief as Markdown (`st.download_button`) | ⬜ Not Started | Added 2026-08-29: lets the video end with the workflow *completing* (an artifact in hand) without violating guardrail #6 — nothing is auto-sent; the human carries it out |
+| UI: per-cluster trend sparkline (stretch, last in line) | ⬜ Not Started | Added 2026-08-29: genuinely useful to analysts, but trend is already encoded in the risk score — build only after every other Phase 3–6 item is ✅ |
 | README: spin-up steps, architecture PNG, metrics table | 🔶 Partial | Spin-up steps exist; no PNG exported from `docs/asrs-agent-architecture.mermaid` yet; no metrics table (no real metrics yet — Phase 3/5) |
 
 ---
@@ -137,7 +142,7 @@ every feature below has to satisfy), `DATA.md` / `EVAL.md` / `DEMO_SCRIPT.md` /
 | Demo script | ✅ Done | `docs/DEMO_SCRIPT.md` |
 | Failure-tolerance demo path recorded | ⬜ Not Started | 🚫 Blocked by: Phase 6 fan-out handling |
 | ≤4-min video (GCP console/Cloud Run proof + unedited live execution), uploaded public | ⬜ Not Started | 🚫 Blocked by: Phase 4 deploy |
-| Devpost submission draft (description, track=Taskmaster, repo/hosted/video URLs, diagram) | ⬜ Not Started | |
+| Devpost submission draft (description, track=Taskmaster, repo/hosted/video URLs, diagram) | ⬜ Not Started | Description must include a literal **"The Twist"** section (restraint made mechanical: no-LLM clustering, frozen thresholds, locked holdout, citation critic, the caught reward-hack) + the ASRS institutional-mirror paragraph — see SUBMISSION.md |
 | Bonus: dev.to/Medium writeup + LinkedIn post | ⬜ Not Started | Stretch, per BUILD_PLAN cut list |
 | Final submission | ⬜ Not Started | Deadline: Aug 31, 5:00pm PDT / 8:00pm ET |
 
@@ -147,3 +152,8 @@ every feature below has to satisfy), `DATA.md` / `EVAL.md` / `DEMO_SCRIPT.md` /
 `pipeline/`, `eval/`, `ui/`, `infra/`, `config/` plus a clean-environment test run
 (14/14 pass) and demo run. Update this file in place — it is a status board, not a
 log; use `PROGRESS.md` for the append-only history.*
+
+*Scope addendum 2026-08-29: rubric-alignment items added (live-credential smoke
+test, Cloud Scheduler trigger, "NEW THIS RUN" badge, brief download, sparkline
+stretch) after reviewing the plan against the published judging rubric and the
+organizers' Q&A session — rationale in PROGRESS.md 2026-08-29 "(Sat, cont'd 2)".*

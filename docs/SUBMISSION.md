@@ -3,6 +3,15 @@
 Deadline: **Aug 31 2026, 5:00pm PDT (8:00pm ET).** Target submit: **Aug 31, 12pm ET.**
 Category: **Taskmaster.** Entrant: solo individual (also eligible for the Individual/Hobbyist prize pool and the Best Architectural Design side prize).
 
+## Judging rubric (verified 2026-08-29 against the published rules page)
+- **Stage One is pass/fail:** all mandatory requirements present and properly applied. No live GCP proof = eliminated, regardless of architecture. This is why the live path (Phases 3–4) outranks every polish item.
+- **Stage Two, scored 1–5 per criterion:**
+  - **Innovation & Operational Utility — 40%:** "Does the system eliminate real-world friction? Is the 'Twist' present?" — "high-value, autonomous execution over simple chat queries"
+  - **Architectural Discipline & Tech Stack — 30%:** "We are evaluating your engineering decisions, not just your ability to call an API" — decoupling, state management, robust agentic design
+  - **Demo & Production Readiness — 30%:** "undeniable proof of execution" + clean, reproducible documentation
+- **Taskmaster lens:** does the agent "intercept and complete a multi-step background workflow"? Plus BYOF ("Bring Your Own Friction") — a unique, personal friction story.
+- **Stage Three bonus:** +0.2 content post, +0.2 social post, +0.2 per additional Google model (Gemma/Veo/Lyria) up to 0.6. **Decision: Gemma only, stretch only.** Do not chase Veo/Lyria or the Multimodal UX side prize — forcing them into a safety-triage tool costs 30%-criterion points to gain bonus decimals.
+
 ## Mandatory tech (verify all three are visibly true in repo + video)
 - [ ] Gemini 3.5+ via Gemini API or Vertex AI
 - [ ] Google Agent Framework: **ADK (Python)**
@@ -11,11 +20,13 @@ Category: **Taskmaster.** Entrant: solo individual (also eligible for the Indivi
 ## Submission form items
 - [ ] Category selected: Taskmaster
 - [ ] Text description: features, functionality, tech used, data sources (NASA ASRS via HF `elihoole/asrs-aviation-reports`), findings & learnings (they explicitly ask for learnings — include the caught-reward-hack story)
+  - [ ] Literal **"The Twist"** section: restraint made mechanical — no-LLM clustering, frozen thresholds the agents cannot touch, locked holdout, citation-stripping critic, and the guard that caught our own agent gaming ROUGE. Framing line: "Every other demo shows what the agents can do; VIGIL's headline feature is what they're structurally forbidden from doing."
+  - [ ] ASRS institutional-mirror paragraph: NASA ASRS takes 100,000+ reports/yr; every report is screened by two expert analysts within 3 working days; the real-world output is an Alert Message to organizations in authority — VIGIL mirrors that exact triage→alert workflow (cite asrs.arc.nasa.gov + NTRS doc 20210023200)
 - [ ] Hosted project URL (Cloud Run .run.app — "highly encouraged" and keeps the live-proof story tight)
 - [ ] Repo URL (public; if private instead, grant testing@devpost.com and cloudhackathons@google.com)
 - [ ] README spin-up instructions (reproducibility is an explicit judging line item)
 - [ ] Architecture diagram (export the mermaid to PNG; also embed in README)
-- [ ] Video ≤4 min, public YouTube/Vimeo, English: problem + value prop + live demo + **GCP console proof on screen**
+- [ ] Video ≤4 min, public YouTube/Vimeo, English: problem + value prop + live demo + **GCP console proof on screen**; console segment includes ~3s of the Cloud Scheduler trigger config (background-workflow proof)
 - [ ] Project built entirely within the Submission Period (started Aug 20 — compliant); disclose AI coding assistants used (Claude Code / Codex) and any third-party libs
 
 ## Compliance checks
@@ -27,7 +38,7 @@ Category: **Taskmaster.** Entrant: solo individual (also eligible for the Indivi
 ## Bonus points (Stage Three, up to +1.0)
 - [ ] +0.2 — public build-story post (dev.to / Medium / YouTube) including the required line that it was created for entering this hackathon
 - [ ] +0.2 — social post on LinkedIn or X with **#AllThingsAgentic** hashtag
-- [ ] +0.2 (stretch) — integrate one more Google model (Gemma) for a real sub-task
+- [ ] +0.2 (stretch) — integrate one more Google model (Gemma) for a real sub-task (rules allow +0.2 per extra model up to 0.6 — deliberate decision to stop at Gemma; see rubric section above)
 
 ## After submitting
 - [ ] Confirmation email received; submission visible in gallery
