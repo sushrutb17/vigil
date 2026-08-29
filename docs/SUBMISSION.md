@@ -23,6 +23,7 @@ Category: **Taskmaster.** Entrant: solo individual (also eligible for the Indivi
   - [ ] Literal **"The Twist"** section: restraint made mechanical — no-LLM clustering, frozen thresholds the agents cannot touch, locked holdout, citation-stripping critic, and the guard that caught our own agent gaming ROUGE. Framing line: "Every other demo shows what the agents can do; VIGIL's headline feature is what they're structurally forbidden from doing."
   - [ ] ASRS institutional-mirror paragraph: NASA ASRS takes 100,000+ reports/yr; every report is screened by two expert analysts within 3 working days; the real-world output is an Alert Message to organizations in authority — VIGIL mirrors that exact triage→alert workflow (cite asrs.arc.nasa.gov + NTRS doc 20210023200)
 - [ ] Hosted project URL (Cloud Run .run.app — "highly encouraged" and keeps the live-proof story tight)
+- [ ] **Judge-explorable architecture viewer:** [vigil-architecture.vercel.app](https://vigil-architecture.vercel.app) — public Archify runtime map; include this as the architecture/demo companion URL during the final submission pass. Verify it logged out/incognito before submitting.
 - [ ] Repo URL (public; if private instead, grant testing@devpost.com and cloudhackathons@google.com)
 - [ ] README spin-up instructions (reproducibility is an explicit judging line item)
 - [ ] Architecture diagram (export the mermaid to PNG; also embed in README)
@@ -45,3 +46,8 @@ Category: **Taskmaster.** Entrant: solo individual (also eligible for the Indivi
 - [ ] Scale Cloud Run to zero / disable services; check billing
 - [ ] Keep the deployment resurrectable: judging runs Sep 1 – Oct 1 and judges may test the hosted URL during that window — min-instances 0 costs ~nothing, so leave the service up rather than deleting it
 - [ ] Winners on/around Oct 8
+
+## Final-stretch reminder
+
+- [ ] Add the public Archify viewer URL to the final Devpost/README materials: <https://vigil-architecture.vercel.app>
+- [ ] Open the viewer in a clean/incognito browser and confirm judges can explore the architecture, trace the main path, switch themes, and use the export controls.
