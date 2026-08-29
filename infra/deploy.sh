@@ -38,8 +38,14 @@ SECRET_NAME="gemini-api-key"
 # from the metadata server. Splitting them also means "the UI cannot read the
 # API key" is enforced by IAM rather than by merely not mounting it.
 #
-#   vigil-ui-run    — no roles at all. The UI only serves the committed
-#                     artifacts/demo_run.json snapshot; it needs nothing.
+#   vigil-ui-run    — roles/datastore.user only (added 2026-08-29 when the
+#                     Approve/Reject buttons started writing decisions to
+#                     Firestore's clusters/ and rejections/ collections — see
+#                     pipeline/store.py TriageStore.set_cluster_status /
+#                     put_rejection). No secretAccessor: the UI never needs the
+#                     Gemini key, since it serves the committed
+#                     artifacts/demo_run.json snapshot rather than calling the
+#                     model itself.
 #   vigil-batch-run — secretAccessor on this one secret, plus Firestore access.
 UI_SA="vigil-ui-run@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"
 BATCH_SA="vigil-batch-run@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"
@@ -77,21 +83,33 @@ gcloud secrets add-iam-policy-binding "$SECRET_NAME" \
   --role roles/secretmanager.secretAccessor \
   --condition=None >/dev/null
 
-# Firestore read/write for the batch job only. The UI never touches Firestore.
+# Firestore read/write for the batch job.
 gcloud projects add-iam-policy-binding "$GOOGLE_CLOUD_PROJECT" \
   --member "serviceAccount:${BATCH_SA}" \
   --role roles/datastore.user \
   --condition=None >/dev/null
 
+# Firestore read/write for the UI too, scoped to datastore.user only (no
+# secretAccessor, no broader role) — the human-gate Approve/Reject buttons
+# write cluster status + rejections directly from the UI process.
+gcloud projects add-iam-policy-binding "$GOOGLE_CLOUD_PROJECT" \
+  --member "serviceAccount:${UI_SA}" \
+  --role roles/datastore.user \
+  --condition=None >/dev/null
+
 echo "==> Deploying UI service (vigil-ui) to $GOOGLE_CLOUD_REGION"
-# Runs as vigil-ui-run, which holds no IAM roles whatsoever. The UI serves the
-# committed artifacts/demo_run.json snapshot: no model calls, no Firestore, no
-# secrets. Public exposure is therefore bounded to the static content itself.
+# Runs as vigil-ui-run: datastore.user only, no secretAccessor. The UI serves
+# the committed artifacts/demo_run.json snapshot for reads (no model calls,
+# no per-pageview cost) but needs GOOGLE_CLOUD_PROJECT + Firestore access so
+# Approve/Reject persist real decisions into the same project the batch job
+# wrote clusters/escalations to (ui.streamlit_app._get_store selects
+# FirestoreStore whenever this env var is present).
 gcloud run deploy vigil-ui \
   --project "$GOOGLE_CLOUD_PROJECT" \
   --region "$GOOGLE_CLOUD_REGION" \
   --source . \
   --service-account "$UI_SA" \
+  --set-env-vars "GOOGLE_CLOUD_PROJECT=$GOOGLE_CLOUD_PROJECT" \
   --min-instances 0 \
   --memory 1Gi \
   --allow-unauthenticated

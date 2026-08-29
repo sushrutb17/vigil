@@ -592,6 +592,25 @@ A step 5 — they need `gcloud`/network, which this device_bash session
 doesn't have, so they're prepped as exact commands for the user to run in
 their own terminal rather than attempted here.
 
+## 2026-08-29 (Sat, cont'd 12) — deploy.sh's UI service account needed updating for the new Firestore writes
+
+Caught before running anything: the Approve/Reject persistence added above
+picks `FirestoreStore` whenever `GOOGLE_CLOUD_PROJECT` is set, but the
+existing `infra/deploy.sh` deliberately deployed `vigil-ui` with **zero** IAM
+roles and no `GOOGLE_CLOUD_PROJECT` env var (that was correct advice at the
+time it was written — the UI only read a static artifact). Left as-is, the
+deployed UI would have silently fallen back to a fresh in-memory store on
+every Cloud Run instance/restart: Approve/Reject would *look* like it worked
+in the browser and then vanish, which is worse than not persisting at all
+because a demo/judging session wouldn't catch it.
+
+Fixed `infra/deploy.sh`: `vigil-ui-run` now gets `roles/datastore.user` (not
+broader — still no `secretAccessor`, the UI never calls the model) and
+`gcloud run deploy vigil-ui` now passes `--set-env-vars
+GOOGLE_CLOUD_PROJECT=$GOOGLE_CLOUD_PROJECT`. Comments in the script and the
+Phase 4 PHASES.md row updated to match. Not yet run — this is still prep,
+same as the rest of Phase 4.
+
 <!-- Add a new dated section above this line each time we make a decision, ship a
      feature, or change status. Keep entries short: what changed, what's verified,
      what's still open. -->
