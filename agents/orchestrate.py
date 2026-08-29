@@ -12,7 +12,7 @@ from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 
 from agents import contracts
-from agents.critic import strip_uncited_claims
+from agents.critic import format_citations, strip_uncited_claims
 from agents.live import run_llm_agent
 from agents.runtime import parse_structured_response
 from pipeline.models import ASRSReport, ClusterAssessment, RiskScore
@@ -179,7 +179,7 @@ def live_draft_brief(
     ``strip_uncited_claims`` runs last, unconditionally — guardrail #4 has no
     exceptions, regardless of what the LLM critic did or whether it ran at all.
     """
-    citations = " ".join(f"[ACN {acn}]" for acn in assessment.member_acns)
+    citations = format_citations(assessment.member_acns)
     candidates = _precedent_candidates(assessment, batch, limit=max_precedent_candidates)
     precedent_evidence = "\n".join(f"[ACN {r.acn}] {r.narrative}" for r in candidates)
     precedent_message = (

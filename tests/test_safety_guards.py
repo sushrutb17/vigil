@@ -242,3 +242,24 @@ def test_frozen_policy_has_no_mutable_clustering_mapping() -> None:
 def test_live_ingest_refuses_holdout_reads() -> None:
     with pytest.raises(PermissionError):
         load_parquet(Path("data/holdout/test.parquet"))
+
+
+def test_capped_citations_still_pass_the_gate() -> None:
+    """Truncating a citation list must not turn a cited claim into an uncited one."""
+    from agents.critic import format_citations, strip_uncited_claims
+
+    acns = [str(1000000 + index) for index in range(629)]
+    claim = f"- A recurring maintenance installation hazard. {format_citations(acns)}"
+    result = strip_uncited_claims(claim, allowed_acns=acns)
+    assert result.cleaned_brief.strip()
+    assert not result.removed_claims
+    assert not result.fabricated_citations
+    assert "(+617 more in this cluster)" in result.cleaned_brief
+
+
+def test_citation_cap_is_not_applied_to_small_clusters() -> None:
+    from agents.critic import format_citations
+
+    rendered = format_citations(["1000001", "1000002"])
+    assert rendered == "[ACN 1000001] [ACN 1000002]"
+    assert "more in this cluster" not in rendered

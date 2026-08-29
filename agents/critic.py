@@ -21,6 +21,27 @@ class CriticResult:
         return not self.removed_claims and not self.fabricated_citations
 
 
+#: Citations shown inline before the list is summarized. A 629-member cluster is
+#: real (it occurred on the 5,000-report slice), and spelling out every ACN twice
+#: produced an 18,000-character brief that no human would read.
+MAX_INLINE_CITATIONS = 12
+
+
+def format_citations(acns: Collection[str], *, limit: int = MAX_INLINE_CITATIONS) -> str:
+    """Render member ACNs as bracketed citations, capped for readability.
+
+    Guardrail #4 requires every claim to cite *an* ACN, not every ACN that
+    supports it, so truncating the list does not weaken the gate: the claim is
+    still sourced, and the surviving citations still have to be real reports.
+    The remainder is stated rather than silently dropped, and the UI shows the
+    complete member list beside the brief.
+    """
+    ordered = list(acns)
+    shown = " ".join(f"[ACN {acn}]" for acn in ordered[:limit])
+    remaining = len(ordered) - limit
+    return f"{shown} (+{remaining} more in this cluster)" if remaining > 0 else shown
+
+
 def strip_uncited_claims(brief: str, allowed_acns: Collection[str] | None = None) -> CriticResult:
     """Strip claims that lack a bracketed ACN citation, and citations that are fabricated.
 

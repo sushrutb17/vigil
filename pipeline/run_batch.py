@@ -11,7 +11,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import asdict
 from pathlib import Path
 
-from agents.critic import strip_uncited_claims
+from agents.critic import format_citations, strip_uncited_claims
 from pipeline.cluster import cluster_reports
 from pipeline.ingest import load_parquet
 from pipeline.models import ASRSReport, ClusterAssessment, RiskScore
@@ -109,7 +109,7 @@ def run_batch(
 
 def draft_brief(assessment: ClusterAssessment) -> str:
     """Create a local, source-cited draft suitable for UI and critic demos."""
-    citations = " ".join(f"[ACN {acn}]" for acn in assessment.member_acns)
+    citations = format_citations(assessment.member_acns)
     raw = "\n".join(
         [
             f"# Draft: {assessment.name}",
