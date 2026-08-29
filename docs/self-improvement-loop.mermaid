@@ -1,0 +1,38 @@
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Helvetica,Arial,sans-serif","fontSize":"15px","clusterBkg":"#161b22","clusterBorder":"#30363d","lineColor":"#8b949e","edgeLabelBackground":"#0d1117","textColor":"#c9d1d9","secondaryTextColor":"#c9d1d9"}}}%%
+flowchart TB
+    subgraph OFF["OFFLINE — never runs in the live pipeline, and may revise the Extractor prompt only"]
+        DEV["<b>Dev sample</b> — VALIDATION split only<br/>seeded, 200 rows"]:::data
+        SCORE["<b>Score vs NASA's coded fields</b><br/>reported against a majority-class<br/>+ keyword-rule baseline"]:::tool
+        EV["<b>Evaluator Agent</b> (LLM)<br/>reads the frequency-ranked confusion list,<br/>rewrites the instruction.<br/><i>Returns text — it cannot write a file.</i>"]:::agent
+        CAND["<b>Candidate prompt</b> saved to config/prompts/<br/>scored on the same dev sample"]:::tool
+        GUARD{"<b>Guards pass?</b><br/>macro-F1 not traded for accuracy ·<br/>label coverage not collapsed"}:::gate
+        DGAIN{"<b>Dev gain?</b>"}:::gate
+        HOLD{"<b>Improves on the<br/>LOCKED holdout?</b>"}:::gate
+        PROM["<b>Promote</b> — active.yaml v1 → v2<br/>the live graph picks it up next run"]:::tool
+        DISC["<b>Discard</b><br/>candidate kept as evidence"]:::tool
+        LEDG[("<b>eval/runs/*.json</b><br/>every outcome recorded —<br/>promoted, discarded or guard-blocked.<br/>The improvement curve is generated<br/>from this, never hand-drawn.")]:::mem
+
+        DEV --> SCORE --> EV --> CAND --> GUARD
+        GUARD -->|"no"| DISC
+        GUARD -->|"yes"| DGAIN
+        DGAIN -->|"no"| DISC
+        DGAIN -->|"yes"| HOLD
+        HOLD -->|"no — dev overfit"| DISC
+        HOLD -->|"yes"| PROM
+        PROM --> LEDG
+        DISC --> LEDG
+    end
+
+    HOLDOUT[("<b>data/holdout/</b> — LOCKED, chmod 0444<br/>read by eval/holdout_score.py and nothing else.<br/>Consulted only here, after the candidate text is<br/>already fixed, so nothing it returns can shape a revision.<br/>A guard failure or a flat dev score short-circuits<br/>before it is read at all.")]:::locked
+    FROZEN["<b>config/frozen.yaml</b><br/>risk thresholds — NOT reachable from this loop.<br/>A safety system that quietly retunes its own<br/>severity bar is an audit failure."]:::frozen
+
+    HOLDOUT -.-> HOLD
+    FROZEN -.->|"never written"| PROM
+
+    classDef agent fill:#12365a,stroke:#58a6ff,stroke-width:2px,color:#e6edf3
+    classDef tool fill:#123d2a,stroke:#3fb950,stroke-width:2px,color:#e6edf3
+    classDef data fill:#21262d,stroke:#8b949e,stroke-width:2px,color:#e6edf3
+    classDef gate fill:#4d3800,stroke:#d29922,stroke-width:2px,color:#e6edf3
+    classDef mem fill:#2d2159,stroke:#a371f7,stroke-width:2px,color:#e6edf3
+    classDef frozen fill:#30363d,stroke:#f85149,stroke-width:2px,color:#e6edf3
+    classDef locked fill:#4d1f1f,stroke:#f85149,stroke-width:3px,color:#e6edf3

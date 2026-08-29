@@ -1,71 +1,66 @@
-flowchart TD
-    SRC["ASRS Corpus<br/>47.7k reports"]:::data
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Helvetica,Arial,sans-serif","fontSize":"15px","clusterBkg":"#161b22","clusterBorder":"#30363d","lineColor":"#8b949e","edgeLabelBackground":"#0d1117","textColor":"#c9d1d9","secondaryTextColor":"#c9d1d9","tertiaryColor":"#161b22"}}}%%
+flowchart TB
+    SCHED(["<b>Cloud Scheduler</b><br/>Mon 09:00 weekly — unattended"]):::infra
+    SRC["<b>NASA ASRS corpus</b> — 47,723 reports<br/>train 38,655 · val 4,295 · test LOCKED"]:::data
 
-    subgraph S1["STAGE 1 - Ingest / SequentialAgent"]
-        EXT["Extractor Agent<br/>narrative to schema"]:::agent
-        DED["Dedup Agent<br/>merge same-event reports"]:::agent
-        EXT --> DED
+    subgraph S12["STAGES 1–2 · Deterministic — no LLM call reaches this code"]
+        direction LR
+        ING["<b>Ingest</b><br/>NASA's own coded<br/>columns → typed record"]:::tool
+        EMB["<b>Embeddings + HDBSCAN</b><br/>seeded, reproducible"]:::tool
+        ING --> EMB
     end
 
-    subgraph S2["STAGE 2 - Cluster / deterministic tool"]
-        EMB["Embeddings + HDBSCAN<br/>no LLM here"]:::tool
+    subgraph S3["STAGE 3 · Assess — one Analyst call per cluster, not per report"]
+        direction LR
+        CA["<b>Analyst Agent</b> (LLM)<br/>names the hazard, writes prose<br/><i>does not compute risk</i>"]:::agent
+        RISK["<b>Risk scoring</b> — deterministic code<br/>0.5·severity + 0.3·frequency + 0.2·trend"]:::tool
+        CA --> RISK
     end
 
-    subgraph S3["STAGE 3 - Analyse / LlmAgent per cluster"]
-        CA["Cluster Analyst<br/>name, hazard statement,<br/>risk = severity x freq x trend"]:::agent
-        GATE{"Above<br/>threshold?"}:::gate
-        CA --> GATE
+    GATE{"<b>total ≥ 0.60?</b>"}:::gate
+
+    subgraph S4["STAGE 4 · Coordinate — escalated clusters only, plain-Python fan-out"]
+        direction LR
+        P1["<b>Precedent</b>"]:::agent
+        P2["<b>Risk Explainer</b>"]:::agent
+        P3["<b>Brief Writer</b>"]:::agent
+    end
+    DEG{"<b>survivors?</b>"}:::gate
+
+    subgraph S5["STAGE 5 · Verify, then stop"]
+        CRIT["<b>Critic Agent</b> (LLM)<br/>removes uncited claims.<br/>A 2-of-3 brief is stamped <b>DEGRADED</b>,<br/>re-asserted by code if the Critic drops it."]:::agent
+        HARD["<b>strip_uncited_claims</b> — deterministic<br/>ALWAYS runs last, even if the Critic died.<br/>Validates <i>provenance</i>, not citation shape:<br/>a well-formed ACN from no real report is stripped."]:::tool
+        CRIT --> HARD
     end
 
-    subgraph S4["STAGE 4 - Respond / ParallelAgent"]
-        COORD["Coordinator Agent"]:::agent
-        P1["Precedent Agent<br/>RAG over history"]:::agent
-        P2["Risk Agent<br/>score vs matrix"]:::agent
-        P3["Brief Writer<br/>investigator brief"]:::agent
-        COORD --> P1
-        COORD --> P2
-        COORD --> P3
-    end
+    DET["<b>Deterministic brief template</b><br/>the cluster is never dropped"]:::tool
+    HUMAN["<b>HUMAN APPROVAL — terminal</b><br/>VIGIL drafts and recommends.<br/>It never sends, files, or actions."]:::human
+    MEM[("<b>Firestore</b><br/>clusters · escalations · rejections<br/>agent_log: model, tokens, latency")]:::mem
+    FROZEN["<b>config/frozen.yaml — FROZEN</b><br/>thresholds loaded read-only.<br/>No agent may retune them,<br/>including the Evaluator."]:::frozen
 
-    subgraph S5["STAGE 5 - Verify and gate"]
-        CRIT["Critic Agent<br/>strip any claim<br/>without a cited ACN"]:::agent
-        HUMAN["HUMAN APPROVAL<br/>analyst reviews<br/>system never actions"]:::human
-        CRIT --> HUMAN
-    end
-
-    MEM[("Memory / Firestore<br/>escalated cluster IDs<br/>prevents re-alerting")]:::mem
-
-    subgraph LOOP["SELF-IMPROVEMENT LOOP - offline, extractor only"]
-        EVAL["Evaluator Agent<br/>score vs coded fields"]:::agent
-        REV["Prompt Revision<br/>proposed by LLM"]:::agent
-        HOLD{"Improves on<br/>LOCKED holdout?"}:::gate
-        GUARD["Guard metrics<br/>catch reward hacking"]:::tool
-        EVAL --> REV --> HOLD
-        HOLD -->|"yes - promote"| GUARD
-        HOLD -->|"no - discard"| EVAL
-    end
-
-    FROZEN["FROZEN - risk thresholds<br/>never self-tuned<br/>audit requirement"]:::frozen
-
-    SRC --> S1
-    DED --> EMB
+    SCHED --> SRC --> S12
     EMB --> CA
-    GATE -->|"severe"| COORD
-    GATE -->|"below"| MEM
-    P1 --> CRIT
-    P2 --> CRIT
-    P3 --> CRIT
+    RISK --> GATE
+    GATE -->|"escalate"| S4
+    GATE -->|"below threshold"| MEM
+    P1 --> DEG
+    P2 --> DEG
+    P3 --> DEG
+    DEG -->|"3 of 3"| CRIT
+    DEG -->|"2 of 3"| CRIT
+    DEG -->|"< 2"| DET
+    DET --> HARD
+    HARD --> HUMAN
     HUMAN --> MEM
-    MEM -.->|"already escalated?"| CA
-    HUMAN -.->|"rejected cluster<br/>= negative example"| MEM
-    EXT -.->|"batch output"| EVAL
-    GUARD -.->|"promoted prompt"| EXT
-    FROZEN -.-> P2
+    MEM -.->|"member-set Jaccard > 0.6 —<br/>already alerted, stay quiet"| CA
+    HUMAN -.->|"rejected = negative example"| MEM
+    FROZEN -.->|"read-only"| RISK
 
-    classDef agent fill:#1a3d5c,stroke:#4a9eda,stroke-width:2px,color:#fff
-    classDef tool fill:#2d4a2d,stroke:#6aba6a,stroke-width:2px,color:#fff
-    classDef data fill:#3d3d3d,stroke:#999,stroke-width:2px,color:#fff
-    classDef gate fill:#5c4a1a,stroke:#daa54a,stroke-width:2px,color:#fff
-    classDef human fill:#5c1a1a,stroke:#da4a4a,stroke-width:3px,color:#fff
-    classDef mem fill:#3d2d5c,stroke:#9a7ada,stroke-width:2px,color:#fff
-    classDef frozen fill:#4a4a4a,stroke:#da4a4a,stroke-width:2px,color:#fff
+    classDef agent fill:#12365a,stroke:#58a6ff,stroke-width:2px,color:#e6edf3
+    classDef tool fill:#123d2a,stroke:#3fb950,stroke-width:2px,color:#e6edf3
+    classDef data fill:#21262d,stroke:#8b949e,stroke-width:2px,color:#e6edf3
+    classDef gate fill:#4d3800,stroke:#d29922,stroke-width:2px,color:#e6edf3
+    classDef human fill:#5c1a1a,stroke:#f85149,stroke-width:3px,color:#e6edf3
+    classDef mem fill:#2d2159,stroke:#a371f7,stroke-width:2px,color:#e6edf3
+    classDef frozen fill:#30363d,stroke:#f85149,stroke-width:2px,color:#e6edf3
+    classDef infra fill:#0f3d3d,stroke:#39d3d3,stroke-width:2px,color:#e6edf3

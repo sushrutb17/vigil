@@ -110,6 +110,20 @@ to echo it cannot make a partial-failure brief look clean.
 
 ## Architecture and safety invariants
 
+![VIGIL architecture](docs/architecture.png)
+
+Reading the diagram: everything green is deterministic code, everything blue is a
+model call. The two are deliberately not interchangeable. Clustering and risk
+scoring contain **no** model call, the Analyst names hazards but never computes
+risk, and the last thing to touch any brief is deterministic code rather than an
+agent.
+
+The offline self-improvement loop is a separate system that never runs in the
+live pipeline:
+
+![Self-improvement loop](docs/self-improvement-loop.png)
+
+
 `pipeline/cluster.py` has no generative model calls: it clusters embeddings with
 HDBSCAN only, in a reproducible single-worker configuration. The risk policy in
 `config/frozen.yaml` is loaded as immutable data at runtime; agents cannot retune
