@@ -4,7 +4,8 @@
 # Prerequisites:
 #   gcloud auth login && gcloud config set project <project>
 #   gcloud services enable run.googleapis.com cloudbuild.googleapis.com \
-#       artifactregistry.googleapis.com secretmanager.googleapis.com
+#       artifactregistry.googleapis.com secretmanager.googleapis.com \
+#       cloudscheduler.googleapis.com
 #   export GOOGLE_CLOUD_PROJECT=vigil-hackathon-506218
 #     ^ the PROJECT ID, not the display name. GCP appended -506218 because the
 #       bare "vigil-hackathon" ID was already taken globally; `gcloud config set
@@ -34,6 +35,9 @@ set -euo pipefail
 : "${GOOGLE_API_KEY:?Set GOOGLE_API_KEY before deployment (see .env)}"
 GOOGLE_CLOUD_REGION="${GOOGLE_CLOUD_REGION:-us-central1}"
 SECRET_NAME="gemini-api-key"
+SCHEDULER_JOB="${VIGIL_SCHEDULER_JOB:-vigil-weekly-triage}"
+SCHEDULER_SCHEDULE="${VIGIL_SCHEDULER_SCHEDULE:-0 9 * * 1}"
+SCHEDULER_TIME_ZONE="${VIGIL_SCHEDULER_TIME_ZONE:-America/Toronto}"
 
 # Two dedicated runtime identities instead of the default compute service
 # account. That default typically carries primitive Editor on the whole project,
@@ -51,8 +55,11 @@ SECRET_NAME="gemini-api-key"
 #                     artifacts/demo_run.json snapshot rather than calling the
 #                     model itself.
 #   vigil-batch-run — secretAccessor on this one secret, plus Firestore access.
+#   vigil-scheduler-run — invokes only the vigil-batch Cloud Run job. It cannot
+#                         read Firestore or the Gemini secret.
 UI_SA="vigil-ui-run@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"
 BATCH_SA="vigil-batch-run@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"
+SCHEDULER_SA="vigil-scheduler-run@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"
 
 ensure_service_account() {
   local account_id="$1" display_name="$2"
@@ -64,9 +71,10 @@ ensure_service_account() {
   fi
 }
 
-echo "==> Ensuring dedicated runtime service accounts"
+echo "==> Ensuring dedicated runtime and scheduler service accounts"
 ensure_service_account vigil-ui-run "VIGIL UI (no privileges)"
 ensure_service_account vigil-batch-run "VIGIL batch job"
+ensure_service_account vigil-scheduler-run "VIGIL Scheduler invoker"
 
 echo "==> Storing the Gemini API key in Secret Manager ($SECRET_NAME)"
 # printf without a trailing newline: a stray \n inside the secret payload would
@@ -138,6 +146,44 @@ gcloud run jobs deploy vigil-batch \
 # and with a space gcloud's parser treats that leading dash as the start of a
 # new flag and fails with "argument --args: expected one argument".
 
+echo "==> Configuring weekly Cloud Scheduler trigger ($SCHEDULER_JOB)"
+# Keep the scheduler's OAuth identity separate from the batch runtime identity:
+# it can start this one job, but it cannot read the Gemini secret or Firestore.
+gcloud run jobs add-iam-policy-binding vigil-batch \
+  --project "$GOOGLE_CLOUD_PROJECT" \
+  --region "$GOOGLE_CLOUD_REGION" \
+  --member "serviceAccount:${SCHEDULER_SA}" \
+  --role roles/run.invoker >/dev/null
+
+SCHEDULER_URI="https://run.googleapis.com/v2/projects/${GOOGLE_CLOUD_PROJECT}/locations/${GOOGLE_CLOUD_REGION}/jobs/vigil-batch:run"
+if gcloud scheduler jobs describe "$SCHEDULER_JOB" \
+    --project "$GOOGLE_CLOUD_PROJECT" \
+    --location "$GOOGLE_CLOUD_REGION" >/dev/null 2>&1; then
+  gcloud scheduler jobs update http "$SCHEDULER_JOB" \
+    --project "$GOOGLE_CLOUD_PROJECT" \
+    --location "$GOOGLE_CLOUD_REGION" \
+    --schedule "$SCHEDULER_SCHEDULE" \
+    --time-zone "$SCHEDULER_TIME_ZONE" \
+    --uri "$SCHEDULER_URI" \
+    --http-method POST \
+    --oauth-service-account-email "$SCHEDULER_SA" \
+    --message-body '{}' \
+    --update-headers Content-Type=application/json \
+    --description "Weekly VIGIL ASRS safety-signal triage; drafts only, human approval remains terminal"
+else
+  gcloud scheduler jobs create http "$SCHEDULER_JOB" \
+    --project "$GOOGLE_CLOUD_PROJECT" \
+    --location "$GOOGLE_CLOUD_REGION" \
+    --schedule "$SCHEDULER_SCHEDULE" \
+    --time-zone "$SCHEDULER_TIME_ZONE" \
+    --uri "$SCHEDULER_URI" \
+    --http-method POST \
+    --oauth-service-account-email "$SCHEDULER_SA" \
+    --message-body '{}' \
+    --headers Content-Type=application/json \
+    --description "Weekly VIGIL ASRS safety-signal triage; drafts only, human approval remains terminal"
+fi
+
 echo
 echo "==> Deployed. UI URL:"
 gcloud run services describe vigil-ui \
@@ -147,3 +193,4 @@ gcloud run services describe vigil-ui \
 echo
 echo "Run the batch job with:"
 echo "  gcloud run jobs execute vigil-batch --project $GOOGLE_CLOUD_PROJECT --region $GOOGLE_CLOUD_REGION --wait"
+echo "Weekly schedule: $SCHEDULER_JOB — $SCHEDULER_SCHEDULE ($SCHEDULER_TIME_ZONE)"

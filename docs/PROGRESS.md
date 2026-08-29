@@ -948,6 +948,32 @@ and `rejected` in the corresponding `clusters/` documents and a complete
 the last unverified part of the human-approval story. Next critical-path item:
 create and verify the weekly Cloud Scheduler trigger for `vigil-batch`.
 
+## 2026-08-29 (Sat, cont'd 16) — Weekly scheduler path and current batch image verified live
+
+Enabled the Cloud Scheduler API and created `vigil-weekly-triage`, scheduled for
+Monday 09:00 `America/Toronto`. The trigger uses a new dedicated
+`vigil-scheduler-run` identity with `roles/run.invoker` bound on the
+`vigil-batch` job itself—not at project scope. It has no Firestore or Secret
+Manager role; those remain exclusive to the batch runtime identity.
+
+The first manual trigger calls were accepted in Cloud Audit Logs but produced no
+attempt while the just-enabled API and its managed service agent propagated.
+During that wait, redeployed `vigil-batch` from current `main`, closing the
+handoff warning that its image predated the empty-section and citation-
+provenance fixes. After propagation, Scheduler recorded an attempt at
+18:22:18Z and created execution `vigil-batch-pqm56` on image
+`sha256:d33cb6d4b4cd…`. It completed successfully in 2m23s.
+
+Verified the result at the final store, not just the execution status:
+Firestore `clusters/cluster-83a8bcac2a95` contains all four sections (Hazard,
+Precedent, Risk Assessment, Recommended Brief) and its only citations are the
+six fixture sources `[ACN 1000001]` through `[ACN 1000006]`. The cluster is
+`new`, as expected from the already-verified escalation dedup ledger.
+
+Made the cloud state reproducible in `infra/deploy.sh`: it now ensures the
+dedicated scheduler account, grants job-level invoker, and idempotently creates
+or updates the JSON POST trigger. Deploying does not execute it automatically.
+
 <!-- Add a new dated section above this line each time we make a decision, ship a
      feature, or change status. Keep entries short: what changed, what's verified,
      what's still open. -->
