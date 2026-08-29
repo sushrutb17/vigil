@@ -6,7 +6,7 @@ import argparse
 import json
 import random
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import asdict
 from pathlib import Path
 
@@ -17,19 +17,59 @@ from pipeline.models import ASRSReport, ClusterAssessment, RiskScore
 from pipeline.risk import FrozenRiskPolicy, score_cluster
 from pipeline.store import MemoryStore, TriageStore
 
+AssessClusterFn = Callable[[str, Sequence[ASRSReport], RiskScore], ClusterAssessment]
+
+
+def cluster_facets(reports: Sequence[ASRSReport]) -> dict[str, tuple[str, ...]]:
+    """Shared facet summary used by both the deterministic and live assessors."""
+    return {
+        "component": tuple(sorted({report.component for report in reports if report.component})),
+        "flight_phase": tuple(
+            sorted({report.flight_phase for report in reports if report.flight_phase})
+        ),
+        "aircraft_type": tuple(
+            sorted({report.aircraft_type for report in reports if report.aircraft_type})
+        ),
+    }
+
+
+def _dominant(reports: Sequence[ASRSReport], attribute: str, *, fallback: str) -> str:
+    values = [getattr(report, attribute) for report in reports if getattr(report, attribute)]
+    return Counter(values).most_common(1)[0][0] if values else fallback
+
+
+def _assess_cluster(
+    cluster_id: str, reports: Sequence[ASRSReport], risk: RiskScore
+) -> ClusterAssessment:
+    component = _dominant(reports, "component", fallback="operational event")
+    phase = _dominant(reports, "flight_phase", fallback="unknown phase")
+    aircraft = _dominant(reports, "aircraft_type", fallback="mixed aircraft")
+    return ClusterAssessment(
+        cluster_id=cluster_id,
+        name=f"{component} events during {phase}",
+        hazard_statement=(
+            f"Reports describe a recurring {component.lower()} pattern "
+            f"on {aircraft} during {phase}."
+        ),
+        risk=risk,
+        member_acns=tuple(report.acn for report in reports),
+        facets=cluster_facets(reports),
+    )
+
 
 def run_batch(
     reports: Sequence[ASRSReport],
     *,
     policy: FrozenRiskPolicy,
     store: TriageStore,
+    assess_cluster: AssessClusterFn = _assess_cluster,
 ) -> list[ClusterAssessment]:
     """Ingest, deterministically cluster, score, and persist a batch.
 
-    This local implementation uses structured fields as an analyst stand-in only
-    for the demo. Authenticated deployments replace the naming/brief text with
-    the ADK agents defined in ``agents/definitions.py``; the risk gate remains
-    deterministic in both modes.
+    ``assess_cluster`` defaults to a deterministic structured-field stand-in so
+    the no-credentials demo path is unaffected. A live run passes
+    ``agents.orchestrate.live_assess_cluster`` (bound to a real Analyst agent via
+    ``functools.partial``) instead; the risk gate stays deterministic either way.
     """
     for report in reports:
         store.put_report(report.acn, asdict(report))
@@ -43,7 +83,7 @@ def run_batch(
     for cluster in clusters:
         members = [by_acn[acn] for acn in cluster.member_acns]
         risk = score_cluster(members, policy)
-        assessment = _assess_cluster(cluster.cluster_id, members, risk)
+        assessment = assess_cluster(cluster.cluster_id, members, risk)
         already_escalated = store.previously_escalated(frozenset(cluster.member_acns))
         status = "escalated" if risk.escalated and not already_escalated else "new"
         if risk.escalated and not already_escalated:
@@ -79,41 +119,6 @@ def draft_brief(assessment: ClusterAssessment) -> str:
         ]
     )
     return strip_uncited_claims(raw).cleaned_brief
-
-
-def _assess_cluster(
-    cluster_id: str, reports: Sequence[ASRSReport], risk: RiskScore
-) -> ClusterAssessment:
-    component = _dominant(reports, "component", fallback="operational event")
-    phase = _dominant(reports, "flight_phase", fallback="unknown phase")
-    aircraft = _dominant(reports, "aircraft_type", fallback="mixed aircraft")
-    acns = tuple(report.acn for report in reports)
-    return ClusterAssessment(
-        cluster_id=cluster_id,
-        name=f"{component} events during {phase}",
-        hazard_statement=(
-            f"Reports describe a recurring {component.lower()} pattern "
-            f"on {aircraft} during {phase}."
-        ),
-        risk=risk,
-        member_acns=acns,
-        facets={
-            "component": tuple(
-                sorted({report.component for report in reports if report.component})
-            ),
-            "flight_phase": tuple(
-                sorted({report.flight_phase for report in reports if report.flight_phase})
-            ),
-            "aircraft_type": tuple(
-                sorted({report.aircraft_type for report in reports if report.aircraft_type})
-            ),
-        },
-    )
-
-
-def _dominant(reports: Sequence[ASRSReport], attribute: str, *, fallback: str) -> str:
-    values = [getattr(report, attribute) for report in reports if getattr(report, attribute)]
-    return Counter(values).most_common(1)[0][0] if values else fallback
 
 
 def demo_reports() -> list[ASRSReport]:
@@ -162,6 +167,12 @@ def main() -> None:
     )
     parser.add_argument("--seed", type=int, default=42, help="seed for --slice sampling")
     parser.add_argument("--output", type=Path, help="optional JSON output path")
+    parser.add_argument(
+        "--live",
+        action="store_true",
+        help="use a real Analyst LlmAgent call per cluster instead of the deterministic "
+        "naming stand-in (needs live Gemini credentials)",
+    )
     args = parser.parse_args()
     if bool(args.demo) == bool(args.dataset):
         parser.error("pass exactly one of --demo or --dataset PATH")
@@ -171,7 +182,20 @@ def main() -> None:
         if args.demo
         else load_dataset_slice(args.dataset, slice_size=args.slice, seed=args.seed)
     )
-    assessments = run_batch(reports, policy=policy, store=MemoryStore())
+    store = MemoryStore()
+    assess_cluster: AssessClusterFn = _assess_cluster
+    if args.live:
+        from functools import partial
+
+        from agents.definitions import build_agent_graph, load_models
+        from agents.orchestrate import live_assess_cluster
+
+        graph = build_agent_graph()
+        model = load_models()["flash"]
+        assess_cluster = partial(
+            live_assess_cluster, analyst=graph["analyst"], model=model, store=store
+        )
+    assessments = run_batch(reports, policy=policy, store=store, assess_cluster=assess_cluster)
     payload = [
         {**asdict(assessment), "brief": draft_brief(assessment)}
         for assessment in assessments

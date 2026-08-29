@@ -337,6 +337,28 @@ Next: wire live Analyst (per cluster) and Coordinator+Critic (per escalated
 cluster) into `run_batch.py` behind a `--live` flag, now that escalated clusters
 exist on real data to test against.
 
+## 2026-08-29 (Sat, cont'd 5) — Analyst wired into run_batch.py behind --live
+
+Wired the live Analyst call into the operational batch path. `run_batch()` now
+takes an injectable `assess_cluster` parameter (default: the existing
+deterministic stand-in, so the no-credentials demo path is byte-for-byte
+unaffected); `main()` builds a real Analyst `LlmAgent` via
+`agents.definitions.build_agent_graph()` and binds it in with `functools.partial`
+when `--live` is passed. New `agents/orchestrate.py` holds `live_assess_cluster`,
+which calls the Analyst through the validated `agents/live.py` Runner helper and
+parses its structured `ClusterAnalysisOutput` — risk itself stays fully
+deterministic (`pipeline.risk.score_cluster` runs before this, unchanged).
+`make run-live` runs the real 5k slice with this turned on. Refactored
+`_assess_cluster`'s inline facets dict into a shared `cluster_facets()` so the
+live and deterministic paths don't duplicate that logic. All 14 tests pass
+(default behavior unchanged), ruff clean.
+
+Not yet run against real data — that needs the user's terminal/credentials. Once
+confirmed, next is Coordinator (Precedent ∥ Risk ∥ Brief Writer) with 2-of-3
+failure tolerance, then Critic (LLM pass + the existing deterministic
+`strip_uncited_claims` backstop, which stays mandatory regardless of what the LLM
+critic does — guardrail #4 has no exceptions).
+
 <!-- Add a new dated section above this line each time we make a decision, ship a
      feature, or change status. Keep entries short: what changed, what's verified,
      what's still open. -->
