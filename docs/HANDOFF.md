@@ -18,6 +18,78 @@ Entry format:
 
 ---
 
+## 2026-08-30 ~00:30 ET — Claude Code (submission deliverables; measured the core stage and it failed)
+- Last commit: `af4d8d0` Put the clustering failure in the README and Devpost draft
+- Finished:
+  - **Architecture diagram rewritten and rendered.** The mermaid source was from
+    Aug 20 and had drifted into three *false* claims, each making the agents look
+    more autonomous than they are: risk shown as `severity × freq × trend` (it is
+    a deterministic weighted sum, and the Analyst does not compute it), Extractor
+    and Dedup shown in the operational batch path (scoped out Aug 29 — that
+    implied 5,000 model calls that do not happen), and the locked holdout shown
+    running *before* the guards (the real order short-circuits so it is never
+    read). Split into `docs/architecture.png` + `docs/self-improvement-loop.png`,
+    both embedded in the README. **Last README gap closed.**
+  - **Megacluster brief fixed.** `format_citations` caps the inline list at 12
+    and states the remainder. The 629-member cluster's brief went **18,068 → 636
+    characters**; largest brief in the whole artifact is now 4,095. Artifact
+    regenerated and re-verified: 23 clusters, 4 escalated, **zero fabricated
+    citations** against all 38,655 source ACNs, no DEGRADED, all four escalated
+    briefs fully sectioned.
+  - **`make eval-offline`** (`eval/offline_report.py`) — deterministic, no model
+    calls. Closed both remaining cheap Phase 3 eval rows.
+  - **NEW THIS RUN badge** shipped, driven off the existing escalation ledger.
+  - **`docs/DEVPOST_DRAFT.md`** — ~1,600 words, paste-ready.
+  - 52 tests pass, ruff clean, tree clean.
+- **Two honesty problems found and fixed — read these before recording:**
+  1. **`DEMO_SCRIPT.md` told the recorder to say on camera "We caught our own
+     agent cheating; the guard rejected the change."** That never happened. No
+     revision ever gamed ROUGE. Following the script would have put a fabricated
+     result in the submission video. Rewritten with an honest substitute (the
+     citation gate that validated *shape* not *provenance* and kept five
+     invented ACNs) — a better beat anyway, because it is about the safety
+     mechanism rather than the model. Same claim corrected in `SUBMISSION.md`
+     and flagged at the top of the Devpost draft.
+  2. The same script section listed cluster purity, factual coverage and Critic
+     catch rate as numbers to show. Two of the three did not exist yet.
+- **The significant new finding — clustering fails its own guard:**
+  - Purity **0.301** vs a majority-class baseline of **0.219** (+0.08, modest).
+    Adjusted Rand **0.0018** — essentially no recovery of NASA's anomaly
+    partition. Noise fraction **0.837**: 23 clusters covering 816 of 4,998
+    labelled reports.
+  - **0.837 breaches EVAL.md's own predeclared `noise_fraction < 0.40`
+    tripwire.** `evaluate_guards` implements that check but is only ever invoked
+    on the extractor promotion loop, so **nothing had ever run it against the
+    clustering stage it was written for.**
+  - **Deliberately not fixed, and the next session should think hard before
+    "fixing" it.** Tuning `min_cluster_size` until the number drops under its own
+    guard, hours from a deadline, with no held-out check on clustering, is the
+    exact reward-hack this project claims to have engineered against. The honest
+    options are (a) raise the parameter and re-measure properly, or (b) argue the
+    0.40 threshold is wrong for hazard detection where most reports genuinely are
+    one-offs — but (b) has to be argued *before* seeing whether it helps.
+  - The Critic eval, by contrast, came back **1.000** catch rate with **1.000**
+    retention of legitimate claims (the retention control matters — a gate that
+    deleted everything would score 1.000 on catch rate alone).
+- Next action — **everything left is yours, not code**, deadline Aug 31 5pm PDT:
+  1. **Redeploy `vigil-ui`** so the hosted service serves the regenerated
+     artifact. The deployed revision still has the 18,068-character brief.
+     `./infra/deploy.sh` (you run deploys, not the harness).
+  2. **Push to public GitHub.** Pre-push audit is done and clean: no secrets in
+     files or history, `.env` never committed, no raw/holdout data tracked, no
+     guardrail-#5 violations anywhere including history. 72 tracked files, 4.3MB.
+  3. **Record the video** using the corrected `DEMO_SCRIPT.md`.
+  4. **Submit Devpost** from `docs/DEVPOST_DRAFT.md` + the three URLs.
+- Watch out:
+  - `make improve` = **601 live Flash calls**. `make artifact` = a **complete**
+    live run (~39 calls); never chain it after `run-live`.
+  - Still ⬜ and fine to cut: dedup eval, real-data Cloud Run job, trend
+    sparkline, bonus posts.
+  - The "caught our own agent cheating" reward-hack beat remains **unearned**.
+    Do not let it back into any artifact.
+
+---
+
 ## 2026-08-29 ~22:00 ET — Claude Code (Phase 5 built and run live; DEGRADED demo landed)
 - Last commit: `9be1743` Put the real measured numbers in the README
 - **Note for whoever reads this next:** the previous handoff entry was stale on
