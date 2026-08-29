@@ -611,6 +611,116 @@ GOOGLE_CLOUD_PROJECT=$GOOGLE_CLOUD_PROJECT`. Comments in the script and the
 Phase 4 PHASES.md row updated to match. Not yet run — this is still prep,
 same as the rest of Phase 4.
 
+## 2026-08-29 (Sat, cont'd 11) — First real Cloud Run deploy; three bugs only the live run could find
+
+**VIGIL is deployed and running on Google Cloud.** UI:
+https://vigil-ui-715230861973.us-central1.run.app · batch job `vigil-batch` ·
+project `vigil-hackathon-506218` · region `us-central1`. One job execution
+exercises all three mandatory stack components, and Firestore's `agent_log`
+is the receipt: analyst 789 tok/2.5s, precedent 859/2.6s, risk 883/3.8s,
+brief_writer 1289/5.0s, critic 2289/14.4s — all five agents, in the cloud.
+The escalated cluster came back named "Uncommanded Engine Shutdown During
+Landing Rollout" at risk 0.69: real model output, not the deterministic
+stand-in.
+
+### Getting there (environment friction worth not repeating)
+`gcloud` wasn't installed. The Homebrew cask fails on this machine
+(`Error: unknown install step: copy`), and the documented tarball name is
+`google-cloud-cli-darwin-arm.tar.gz`, **not** `-arm64.tar.gz` (that 404s and
+`curl -O` cheerfully saves the 404 page as a .tar.gz). Installed from the
+official tarball into the repo root, which then had to be excluded from
+`.gitignore`, `.gcloudignore`, **and** `.dockerignore` — ~250MB sitting
+directly in the path `--source .` uploads.
+
+The project ID is `vigil-hackathon-506218`, not `vigil-hackathon`. GCP
+appended the suffix because the bare ID was globally taken, and it reports the
+mismatch as *"caller does not have permission"* rather than *"not found"* —
+deliberate (it stops outsiders enumerating project IDs) but it reads like a
+billing/IAM problem and sends you the wrong way. Recorded in PHASES.md Phase 0
+so no one re-derives it.
+
+### Three bugs, none of which static review would have caught
+**1. `--args` parsing.** `deploy.sh` had
+`--args -m,pipeline.run_batch,...`; gcloud rejects it with "expected one
+argument" because the value's leading dash reads as a new flag. The `=` form
+binds it. `bash -n` passes either way — only the real binary objects. The
+`describe`-before-`create` idempotency guards earned their keep here: the run
+died *after* creating both service accounts, the secret, and the UI service,
+and the retry skipped all of them cleanly (`d0b47f5`).
+
+**2. Briefs reached no store at all.** Querying Firestore over REST rather
+than trusting the exit code showed `clusters/` documents with no `brief`
+field. Briefs are drafted in a *second pass*, after `triage_batch` has already
+written the cluster docs — so they only ever existed in stdout and the
+`--output` JSON. The demo masked this completely, because the UI reads the
+committed `artifacts/demo_run.json`. Added `put_cluster_brief` (a merge write,
+so it can't clobber the first pass's analyst output and risk score), plus
+`hazard_statement`, which ARCHITECTURE.md's `clusters/` spec asks for and only
+`name` was satisfying (`cb1f248`).
+
+Deliberately did **not** advance `status` to `"briefed"` despite the spec
+listing that value: `status` is doing double duty as the new/escalated signal
+behind the "NEW THIS RUN" badge and the dedup ledger, so setting it would make
+a freshly-briefed cluster indistinguishable from one already escalated on a
+prior run. Following the spec literally would have introduced a bug. Locked in
+by a test.
+
+**3. Two of three parallel agents were producing output guaranteed to be
+deleted.** The first live brief came back with empty `## Precedent` and
+`## Risk Assessment` sections *even though all three sub-agents succeeded*
+(no DEGRADED banner). Cause: `strip_uncited_claims` matches
+`\[ACN\s+\d{4,}\]` — square brackets required — and only
+`BRIEF_WRITER_INSTRUCTION` ever showed that form. Precedent asked for
+"ACN-cited observations" without specifying the format; `RISK_INSTRUCTION`
+didn't mention citations at all, so **100% of the Risk agent's output was
+stripped on every single run**. Tokens spent, nothing kept, no error — silent
+deletion is exactly what the gate is supposed to do, which is what hid it.
+
+This matters beyond tidiness: the parallel Coordinator fan-out is a judged
+architectural feature, and the video would have shown three agents running
+while only one's work reached the page. Fixed by making the prompts state the
+bracketed form (`f2fe88a`). Worth being clear that this *tightens* guardrail
+#4 rather than relaxing it — the gate is untouched and still deletes anything
+uncited; the agents are simply now told what compliance looks like. Same
+commit fixed `CRITIC_INSTRUCTION`, which asked for "the cleaned brief **and a
+list of removed claims**" while `live_draft_brief` uses the Critic's entire
+response verbatim as the brief — hence a stray `# Cleaned Brief` H1 landing in
+the reviewer-facing document. Two guard tests lock both invariants.
+
+### Verified for free: the dedup ledger works
+Re-running the job left `escalations` at exactly **one** document and flipped
+the cluster's status from `escalated` to `new` — `previously_escalated()`
+matched the prior run by member-set Jaccard >0.6 and declined to re-alert.
+That's the "runs repeatedly in the background without spamming a human"
+behavior, demonstrated against real Firestore. Worth ~5s of the video.
+
+(Naming wart noted, not changed: a cluster seen on a *previous* run ends up
+with `status: "new"`, which reads backwards — it really means "not escalated
+*this* run". The UI and badge depend on these strings, so renaming is a
+separate, tested change.)
+
+### Open, and ordered by what would hurt most to miss
+1. **`artifacts/demo_run.json` is stale** — and it is what the *deployed UI
+   serves*. Generated before `f2fe88a`, so the hosted briefs still show the
+   empty sections and the stray heading. Regenerate (`make run-live` →
+   `make artifact`), commit, redeploy `vigil-ui`. Until then the live URL
+   under-sells the system.
+2. **Approve/Reject unverified on the hosted UI** — unit-tested and the IAM is
+   right, but nobody has clicked the buttons and confirmed a `clusters/` status
+   change plus a `rejections/` document. It's the human-gate story the whole
+   design rests on.
+3. The deployed job runs `--demo` (6 reports), not real data, because
+   `data/raw` is correctly excluded from the image. Real-data runs are
+   currently local-only. Decide before recording: mount a slice from GCS, or
+   bake a larger fixture.
+4. Cloud Scheduler trigger; DEGRADED path demo; Phase 5 loop (still zero code).
+
+**Process note:** `gcloud run jobs execute` reruns the image already built. A
+code change needs `jobs deploy` first — that cost two wasted executions and a
+confusing "the fix didn't work" detour. Also, `deploy.sh` adds a new Secret
+Manager version on every run; when only application code changed, redeploy
+just the job rather than running the whole script.
+
 <!-- Add a new dated section above this line each time we make a decision, ship a
      feature, or change status. Keep entries short: what changed, what's verified,
      what's still open. -->

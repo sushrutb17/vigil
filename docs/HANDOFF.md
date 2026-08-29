@@ -18,6 +18,46 @@ Entry format:
 
 ---
 
+## 2026-08-29 ~17:30 ET — Claude Code (Phase 4 deploy: DONE, live on GCP)
+- Last commit: `f2fe88a` Make Precedent and Risk actually cite, so their output
+  survives the gate
+- Finished: **VIGIL is deployed and running on Google Cloud.**
+  - UI: https://vigil-ui-715230861973.us-central1.run.app (public)
+  - Batch job `vigil-batch`, project `vigil-hackathon-506218`, `us-central1`
+  - One execution exercises Gemini+ADK, Cloud Run, and Firestore. All four
+    collections populated; `agent_log` holds one row per agent with
+    model/tokens/latency — that's the observability story, live.
+  - Fixed three bugs the real run exposed: gcloud `--args` parsing (`d0b47f5`);
+    briefs never reaching any store (`cb1f248`); and Precedent+Risk producing
+    output the citation gate deleted 100% of the time (`f2fe88a`).
+  - 21 tests pass, ruff clean, everything committed.
+- Next action, in priority order:
+  1. **Regenerate `artifacts/demo_run.json`** — the deployed UI serves this
+     file and it predates `f2fe88a`, so the hosted briefs still show empty
+     `## Precedent` / `## Risk Assessment` sections. `make run-live` then
+     `make artifact` (needs credentials, ~23 Analyst calls on the real slice),
+     commit, then redeploy `vigil-ui`. Highest value per minute: it's what a
+     judge sees first.
+  2. **Click Approve and Reject on the hosted URL** and confirm Firestore
+     receives them (a `clusters/` status change and a `rejections/` doc). IAM
+     and code are in place; only the live click is unverified.
+  3. Then: Cloud Scheduler weekly trigger, DEGRADED demo path, Phase 5 loop
+     (zero code exists — and per an explicit user directive it is NOT to be
+     cut from scope).
+- Watch out:
+  - `gcloud run jobs execute` reruns the **already-built image**. A code change
+    needs `gcloud run jobs deploy ... --source .` first. This cost two wasted
+    executions and a "why didn't my fix work" detour.
+  - When only app code changed, redeploy just the job — running the whole
+    `deploy.sh` adds a new Secret Manager version every time.
+  - The project ID is `vigil-hackathon-506218`; the bare name `vigil-hackathon`
+    fails with a misleading *permission denied*, not *not found*.
+  - The gcloud SDK is unpacked at the repo root (~250MB), excluded in all three
+    ignore files. Don't commit it, don't delete the exclusions.
+  - **Sush runs deploy/execute commands themselves** — hand over the command,
+    don't run it for them. Read-only cloud inspection is welcome and has
+    already caught one real bug (querying Firestore over REST, not the console).
+
 ## 2026-08-29 ~15:45 ET — Cowork session (relay pickup + Phase 1 close-out)
 - Last commit: 1504d2a Restore executable bit on infra/deploy.sh (lost in previous edit)
 - Finished: Picked up per Prompt B — tree was already green (14/14 tests, ruff

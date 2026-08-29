@@ -4,7 +4,10 @@ VIGIL turns a batch of public NASA ASRS safety reports into a ranked list of
 emerging hazards and source-cited investigator drafts. It drafts and recommends;
 a human is the only terminal approval gate.
 
-**Live:** https://vigil-ui-715230861973.us-central1.run.app
+**Live:** https://vigil-ui-715230861973.us-central1.run.app — deployed on Cloud
+Run, with the batch pipeline running as a Cloud Run job that persists reports,
+clusters, escalations, and a per-agent call log (model, tokens, latency) to
+Firestore.
 
 ## What is runnable now
 
