@@ -19,7 +19,7 @@ Entry format:
 ---
 
 ## 2026-08-29 ~18:15 ET — Claude Code (verified the prompt fix in the cloud; fixed the empty-section class of bug)
-- Last commit: see `git log -1` — "Never let a brief section render as a bare heading"
+- Last commit: `08adc32` Never let a brief section render as a bare heading
 - Finished:
   - **Verified `f2fe88a` landed in production** by reading the brief execution
     `vigil-batch-dwpfp` wrote to Firestore (REST API, read-only). `## Risk
