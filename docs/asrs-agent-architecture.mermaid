@@ -1,71 +1,56 @@
-flowchart TD
-    SRC["ASRS Corpus<br/>47.7k reports"]:::data
+flowchart TB
+    SRC["Public NASA ASRS corpus<br/>Parquet reports"]:::data
+    ADK["Google ADK + Gemini<br/>Flash operational agents"]:::cloud
 
-    subgraph S1["STAGE 1 - Ingest / SequentialAgent"]
-        EXT["Extractor Agent<br/>narrative to schema"]:::agent
-        DED["Dedup Agent<br/>merge same-event reports"]:::agent
-        EXT --> DED
+    subgraph CLOUD["GOOGLE CLOUD"]
+        direction TB
+
+        subgraph BATCH["Cloud Run batch job — deterministic triage"]
+            direction LR
+            ING["Normalize coded fields<br/>and narratives"]:::tool
+            CLUSTER["TF-IDF + seeded HDBSCAN<br/>NO LLM CALLS"]:::tool
+            ANALYST["Cluster Analyst<br/>name + hazard statement"]:::agent
+            SCORE["Frozen risk policy<br/>severity × frequency × trend"]:::frozen
+            ROUTE{"Above fixed<br/>threshold?"}:::gate
+            ING --> CLUSTER --> ANALYST --> SCORE --> ROUTE
+        end
+
+        subgraph RESPONSE["Escalated clusters only — concurrent fan-out and verification"]
+            direction LR
+            COORD["Coordinator fan-out<br/>Precedent ∥ Risk ∥ Brief Writer"]:::agent
+            CRITIC["Critic Agent<br/>review assembled draft"]:::agent
+            CITE["Deterministic citation gate<br/>ACN format + provenance allow-list"]:::security
+            PERSIST["Persist reports, clusters,<br/>briefs, decisions, call logs"]:::tool
+            COORD --> CRITIC --> CITE --> PERSIST
+        end
+
+        DB[("Firestore<br/>state + escalation ledger<br/>per-agent observability")]:::mem
+        UI["Cloud Run Streamlit UI<br/>ranked review queue + briefs"]:::frontend
+
+        ROUTE -->|"severe"| COORD
+        ROUTE -->|"below threshold"| PERSIST
+        PERSIST --> DB --> UI
     end
 
-    subgraph S2["STAGE 2 - Cluster / deterministic tool"]
-        EMB["Embeddings + HDBSCAN<br/>no LLM here"]:::tool
-    end
+    HUMAN["HUMAN TERMINAL GATE<br/>approve or reject<br/>system never actions"]:::human
+    OFFLINE["PLANNED OFFLINE EXTRACTOR LOOP<br/>validation revisions → guard metrics → LOCKED holdout"]:::planned
 
-    subgraph S3["STAGE 3 - Analyse / LlmAgent per cluster"]
-        CA["Cluster Analyst<br/>name, hazard statement,<br/>risk = severity x freq x trend"]:::agent
-        GATE{"Above<br/>threshold?"}:::gate
-        CA --> GATE
-    end
+    SRC --> ING
+    ADK -.-> ANALYST
+    ADK -.-> COORD
+    ADK -.-> CRITIC
+    UI --> HUMAN
+    HUMAN -->|"approved / rejected"| DB
+    DB -.->|"negative examples"| OFFLINE
 
-    subgraph S4["STAGE 4 - Respond / ParallelAgent"]
-        COORD["Coordinator Agent"]:::agent
-        P1["Precedent Agent<br/>RAG over history"]:::agent
-        P2["Risk Agent<br/>score vs matrix"]:::agent
-        P3["Brief Writer<br/>investigator brief"]:::agent
-        COORD --> P1
-        COORD --> P2
-        COORD --> P3
-    end
-
-    subgraph S5["STAGE 5 - Verify and gate"]
-        CRIT["Critic Agent<br/>strip any claim<br/>without a cited ACN"]:::agent
-        HUMAN["HUMAN APPROVAL<br/>analyst reviews<br/>system never actions"]:::human
-        CRIT --> HUMAN
-    end
-
-    MEM[("Memory / Firestore<br/>escalated cluster IDs<br/>prevents re-alerting")]:::mem
-
-    subgraph LOOP["SELF-IMPROVEMENT LOOP - offline, extractor only"]
-        EVAL["Evaluator Agent<br/>score vs coded fields"]:::agent
-        REV["Prompt Revision<br/>proposed by LLM"]:::agent
-        HOLD{"Improves on<br/>LOCKED holdout?"}:::gate
-        GUARD["Guard metrics<br/>catch reward hacking"]:::tool
-        EVAL --> REV --> HOLD
-        HOLD -->|"yes - promote"| GUARD
-        HOLD -->|"no - discard"| EVAL
-    end
-
-    FROZEN["FROZEN - risk thresholds<br/>never self-tuned<br/>audit requirement"]:::frozen
-
-    SRC --> S1
-    DED --> EMB
-    EMB --> CA
-    GATE -->|"severe"| COORD
-    GATE -->|"below"| MEM
-    P1 --> CRIT
-    P2 --> CRIT
-    P3 --> CRIT
-    HUMAN --> MEM
-    MEM -.->|"already escalated?"| CA
-    HUMAN -.->|"rejected cluster<br/>= negative example"| MEM
-    EXT -.->|"batch output"| EVAL
-    GUARD -.->|"promoted prompt"| EXT
-    FROZEN -.-> P2
-
-    classDef agent fill:#1a3d5c,stroke:#4a9eda,stroke-width:2px,color:#fff
-    classDef tool fill:#2d4a2d,stroke:#6aba6a,stroke-width:2px,color:#fff
-    classDef data fill:#3d3d3d,stroke:#999,stroke-width:2px,color:#fff
-    classDef gate fill:#5c4a1a,stroke:#daa54a,stroke-width:2px,color:#fff
-    classDef human fill:#5c1a1a,stroke:#da4a4a,stroke-width:3px,color:#fff
-    classDef mem fill:#3d2d5c,stroke:#9a7ada,stroke-width:2px,color:#fff
-    classDef frozen fill:#4a4a4a,stroke:#da4a4a,stroke-width:2px,color:#fff
+    classDef agent fill:#173e63,stroke:#58a6d8,stroke-width:2px,color:#ffffff
+    classDef tool fill:#244c2e,stroke:#63b573,stroke-width:2px,color:#ffffff
+    classDef data fill:#3d4650,stroke:#9da7b1,stroke-width:2px,color:#ffffff
+    classDef gate fill:#684b13,stroke:#e0ad45,stroke-width:2px,color:#ffffff
+    classDef human fill:#691f25,stroke:#e05d68,stroke-width:3px,color:#ffffff
+    classDef mem fill:#3f2b67,stroke:#9d7dde,stroke-width:2px,color:#ffffff
+    classDef frozen fill:#4b3d3d,stroke:#df6a6a,stroke-width:2px,color:#ffffff
+    classDef security fill:#3b3558,stroke:#9f8de0,stroke-width:2px,color:#ffffff
+    classDef frontend fill:#174b55,stroke:#4fb8c5,stroke-width:2px,color:#ffffff
+    classDef cloud fill:#243d62,stroke:#6f9edb,stroke-width:2px,color:#ffffff
+    classDef planned fill:#50545b,stroke:#a7adb5,stroke-width:2px,stroke-dasharray:6 4,color:#ffffff
