@@ -25,3 +25,44 @@ def evaluate_guards(metrics: Mapping[str, float]) -> GuardResult:
     }
     failures = tuple(name for name, passed in checks.items() if not passed)
     return GuardResult(passed=not failures, failures=failures)
+
+
+#: A candidate may lose this much parse coverage before it counts as degradation.
+COVERAGE_TOLERANCE = 0.05
+#: Floor below which predictions have collapsed toward a single label.
+MIN_LABEL_DIVERSITY = 0.15
+
+
+def evaluate_extractor_guards(
+    candidate: Mapping[str, float], incumbent: Mapping[str, float]
+) -> GuardResult:
+    """Refuse an extractor prompt revision that games its own metric.
+
+    Deliberately *relative*, per EVAL.md ("must not degrade these"): the absolute
+    floors in ``evaluate_guards`` describe a finished system, and applying them
+    to a first revision would reject every candidate and make the loop theatre.
+
+    The load-bearing check is ``macro_f1_not_traded_for_accuracy``. The known
+    extractor hack is to predict the majority label everywhere: on a field where
+    one class holds ~32% of the rows that lifts plain accuracy while per-class
+    F1 falls. A revision that buys accuracy with macro-F1 is refused even when
+    the headline number improved.
+    """
+    accuracy_gain = candidate.get("primary_problem_accuracy", 0.0) - incumbent.get(
+        "primary_problem_accuracy", 0.0
+    )
+    macro_f1_gain = candidate.get("extractor_macro_f1", 0.0) - incumbent.get(
+        "extractor_macro_f1", 0.0
+    )
+    incumbent_diversity = incumbent.get("primary_problem_label_diversity", 0.0)
+    candidate_diversity = candidate.get("primary_problem_label_diversity", 0.0)
+    checks = {
+        "macro_f1_not_traded_for_accuracy": not (accuracy_gain > 0 and macro_f1_gain < 0),
+        "label_diversity_floor": candidate_diversity >= MIN_LABEL_DIVERSITY,
+        "label_diversity_not_collapsed": candidate_diversity >= 0.5 * incumbent_diversity,
+        "parse_coverage_not_degraded": candidate.get("parse_coverage", 0.0)
+        >= incumbent.get("parse_coverage", 0.0) - COVERAGE_TOLERANCE,
+        "scored_on_same_sample": candidate.get("sample_size") == incumbent.get("sample_size"),
+    }
+    failures = tuple(name for name, passed in checks.items() if not passed)
+    return GuardResult(passed=not failures, failures=failures)

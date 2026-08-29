@@ -1,4 +1,4 @@
-.PHONY: demo run-real run-live artifact ui test lint check download deploy require-key
+.PHONY: demo run-real run-live artifact ui test lint check download deploy require-key improve
 
 # Load .env when it exists so the --live targets work without remembering to
 # `set -a; source .env; set +a` first. Forgetting it does not fail cleanly: ADK
@@ -37,6 +37,13 @@ artifact: require-key
 	uv run python -m pipeline.run_batch --dataset data/raw/default/train/0000.parquet \
 		--slice 5000 --live --output artifacts/demo_run.json > /dev/null
 	@echo "Wrote artifacts/demo_run.json"
+
+# Offline extractor self-improvement loop (Phase 5). Never part of the live
+# pipeline. Reads the validation split; touches the locked holdout only at the
+# promotion decision, through eval/holdout_score.py. Writes eval/runs/ and, on
+# a promotion, config/prompts/ — never config/frozen.yaml.
+improve: require-key
+	uv run python -m eval.improve --sample-size 200 --holdout-size 100
 
 deploy:
 	./infra/deploy.sh

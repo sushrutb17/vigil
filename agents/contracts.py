@@ -28,3 +28,14 @@ class ClusterAnalysisOutput(BaseModel):
     name: str
     hazard_statement: str
     supporting_acns: list[str] = Field(min_length=1)
+
+
+class PromptRevision(BaseModel):
+    """The Evaluator's proposed replacement for a revisable agent instruction."""
+
+    rationale: str = Field(
+        description="What systematic failure in the evidence this revision targets."
+    )
+    revised_instruction: str = Field(
+        min_length=40, description="The complete replacement instruction text."
+    )

@@ -1,0 +1,3 @@
+# Active prompt version per agent. Written by eval/improve.py on promotion.
+# This file is NOT config/frozen.yaml: risk thresholds are never self-tuned.
+extractor: v1
