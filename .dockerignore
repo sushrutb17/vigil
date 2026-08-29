@@ -1,0 +1,27 @@
+# Docker does NOT read .gcloudignore. Without this file, a plain `docker build .`
+# would copy .env (live API key) and data/holdout/ into the image, regardless of
+# what .gcloudignore says. Keep this in sync with .gcloudignore.
+
+.git/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Credentials. Never in an image.
+.env
+
+# GUARDRAIL #3: the locked holdout is readable only by eval/holdout_score.py,
+# which runs locally. It must never ship inside a container image.
+data/holdout/
+data/raw/
+data/cache/
+
+.DS_Store
+eval/runs/
+*.log
+AGENTS.md
+CLAUDE.md
+ac-ai-assistant.md

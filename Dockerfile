@@ -7,9 +7,11 @@ WORKDIR /app
 # present at install time. Splitting dependencies into an earlier layer would
 # improve rebuild caching but fails the build outright.
 #
-# .gcloudignore controls what actually reaches the build context; notably it
-# excludes .venv, data/raw, and data/holdout (guardrail #3: the locked holdout
-# must never ship inside a container image).
+# Exclusions come from TWO files that must be kept in sync, because they cover
+# different tools: .dockerignore governs `docker build`, .gcloudignore governs
+# `gcloud run deploy --source .`. Both exclude .env (live API key) and
+# data/holdout (guardrail #3 — the locked holdout must never ship inside an
+# image). Neither file protects the other tool's path, so do not delete one.
 COPY . .
 RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir .
 
