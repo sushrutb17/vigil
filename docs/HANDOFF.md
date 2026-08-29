@@ -18,6 +18,92 @@ Entry format:
 
 ---
 
+## 2026-08-29 ~22:00 ET — Claude Code (Phase 5 built and run live; DEGRADED demo landed)
+- Last commit: `9be1743` Put the real measured numbers in the README
+- **Note for whoever reads this next:** the previous handoff entry was stale on
+  arrival — its three "next actions" (regenerate artifact, verify Approve/Reject
+  against hosted Firestore, Cloud Scheduler) had all been *done and committed*
+  without a sign-off. Tree was clean, 26 tests green. Trust `docs/PHASES.md`
+  over the newest handoff entry when they disagree; PHASES.md was accurate.
+- Finished:
+  - **Phase 5 is done, end to end, verified on live models.** It had zero code.
+    The loop is `make improve`: seeded dev sample from the validation split →
+    score incumbent → Evaluator reads the *frequency-ranked confusion list* →
+    candidate prompt → score candidate → guards → locked holdout → promote or
+    discard, writing `eval/runs/*.json` on **every** outcome (now committed via
+    a deliberate `.gitignore` exception; EVAL.md makes the ledger the source of
+    the improvement curve).
+  - **First real run promoted extractor v1 → v2.** 200-row dev / 100-row
+    holdout, 601 live Flash calls. dev macro-F1 0.0056 → 0.4099, holdout
+    0.0081 → 0.4219. Guards passed.
+  - **The headline result is unflattering and should stay that way.** v1 scored
+    *below* the majority-class + keyword baseline (0.0515). v1 never told the
+    model the ASRS labels are a closed vocabulary, so it answered "Approach"
+    where the coded value is "Initial Approach", and omitted `primary_problem`
+    from its field list entirely. The Evaluator diagnosed exactly that from the
+    confusion list alone. Holdout gain (+0.4139) *exceeded* dev gain (+0.4043)
+    — the opposite of overfitting. `flight_phase`, which the loop does not
+    optimize, still trails its keyword baseline (0.121 vs 0.171). All three
+    numbers are in the README and PROGRESS.md. Do not quietly drop the third.
+  - **A guard fired and the guard turned out to be wrong — read PROGRESS.md on
+    this before touching `eval/guards.py`.** The 8-row smoke run blocked this
+    revision on label diversity. It was a metric bug: diversity was
+    `distinct_predicted / distinct_expected`, which rewarded v1's free-text
+    sprawl (2.33) and punished a correctly vocabulary-constrained candidate
+    (1.00). Replaced with in-vocabulary label *coverage*, bounded [0,1], which
+    **tightens** the guard (majority-label hack now scores ~0.06 vs a 0.15
+    floor). Documented at length precisely because "changed a tripwire right
+    after it blocked us" is the most self-serving-looking move in this repo.
+  - **Phase 6 fan-out failure tolerance is now demonstrated live**, not just
+    written. `--fail-agent {precedent,risk,brief_writer,critic}` (repeatable,
+    requires `--live`, loud stderr banner) raises a real `InjectedFailure` at
+    the call site, so the demo travels the genuine failure path. Verified:
+    `--demo --live --fail-agent risk` → `DEGRADED` brief, Risk section fell
+    back to its cited deterministic line, everything still ACN-cited.
+  - **Found and fixed a real bug while testing that:** the `DEGRADED` banner
+    survived only if the LLM Critic echoed it (its response is used verbatim as
+    the brief, and `CRITIC_INSTRUCTION` asks it to preserve *headings* — which
+    `DEGRADED` is not). A reviewer could not tell a partial-failure brief from
+    a clean one. `_reassert_degraded` now derives the banner from what the
+    orchestrator knows for certain. Locked by a test whose fake critic strips it.
+  - README now has the measured-results table, `make improve`, the
+    failure-tolerance command, and the loop's guardrails.
+  - 49 tests pass, ruff clean, tree clean.
+- Next action, in priority order — **the deadline is Aug 31 5:00pm PDT and every
+  remaining blocker is a submission deliverable, not code**:
+  1. **Export the architecture PNG** from `docs/asrs-agent-architecture.mermaid`.
+     It is the last README gap and an explicit definition-of-done item.
+  2. **Push the repo to public GitHub** (Phase 0, deliberately deferred, still
+     ⬜). Nothing else can be judged until this happens.
+  3. **Record the video** (≤4 min). The failure-tolerance beat is now unblocked
+     and cheap to shoot: `python -m pipeline.run_batch --demo --live
+     --fail-agent risk`, ~4 calls, ~20s.
+  4. **Devpost form** — needs the literal "The Twist" section per SUBMISSION.md.
+     The Phase 5 numbers above are the strongest material it has; lead with v1
+     losing to the baseline, since honesty about that is the whole thesis.
+  5. Only if time remains: Phase 4's real-data Cloud Run job (⬜), the
+     "NEW THIS RUN" UI badge (⬜), resumable batch (🔶).
+- Watch out:
+  - **No redeploy or artifact regeneration is needed from this session's work.**
+    `extractor` appears nowhere in `pipeline/`, so promoting v2 cannot change
+    the batch pipeline, `artifacts/demo_run.json`, or the live Cloud Run
+    services. Verified, don't re-spend the ~39 live calls checking.
+  - `make improve` costs **601 live Flash calls** per full iteration. The
+    holdout half is only paid once a candidate has cleared the guards *and*
+    shown a dev gain. Use `--sample-size 8 --no-holdout` (~17 calls) to smoke
+    test plumbing changes.
+  - The 629-member megacluster's 18,000-character deterministic brief is
+    **still unfixed** and still in the deployed UI. A judge will see it. This
+    remains the most visible cosmetic problem in the demo.
+  - The "caught our own agent cheating" demo beat from EVAL.md is **still
+    unearned**. The guard event above was a metric bug, not a gamed revision.
+    Do not dress it up as the reward-hack beat in the video or on Devpost.
+  - Prompt versions live in `config/prompts/`; `config/frozen.yaml` is still
+    never written by anything. `REVISABLE == {"extractor"}` raises for any
+    other agent. Both are enforced by tests, not convention.
+
+---
+
 ## 2026-08-29 ~19:00 ET — Claude Code (artifact regenerated; found fabricated citations)
 - Last commit: see `git log -1`
 - Finished:
