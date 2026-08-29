@@ -133,7 +133,10 @@ gcloud run jobs deploy vigil-batch \
   --max-retries 1 \
   --task-timeout 15m \
   --command python \
-  --args -m,pipeline.run_batch,--demo,--live,--firestore
+  --args=-m,pipeline.run_batch,--demo,--live,--firestore
+# --args= must use the equals form, not a space. The value starts with "-m",
+# and with a space gcloud's parser treats that leading dash as the start of a
+# new flag and fails with "argument --args: expected one argument".
 
 echo
 echo "==> Deployed. UI URL:"
