@@ -28,3 +28,8 @@ artifacts/*
 AGENTS.md
 CLAUDE.md
 ac-ai-assistant.md
+
+# Local harness/editor config, not part of the public repo.
+.agents/
+.claude/
+.vscode/
