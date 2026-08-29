@@ -7,16 +7,30 @@ import json
 import random
 import sys
 from collections import Counter
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, replace
+from datetime import UTC, datetime
 from pathlib import Path
+from uuid import uuid4
 
 from agents.critic import format_citations, strip_uncited_claims
 from pipeline.cluster import cluster_reports
 from pipeline.ingest import load_parquet
-from pipeline.models import ASRSReport, ClusterAssessment, RiskScore
-from pipeline.risk import FrozenRiskPolicy, score_cluster
+from pipeline.models import (
+    ASRSReport,
+    ClusterAssessment,
+    EvidenceRecord,
+    JsonDict,
+    RiskScore,
+    SevereSingleton,
+)
+from pipeline.risk import FrozenRiskPolicy, score_cluster, severe_matches
 from pipeline.store import MemoryStore, TriageStore
+
+#: Cap applied to a normalized narrative before it is embedded in an artifact or
+#: evidence record. Whitespace is normalized first so the cap counts meaningful
+#: characters, not raw formatting (T1-01, docs/TIER1_ENHANCEMENTS_SPEC.md 5.2).
+NARRATIVE_EXCERPT_LIMIT = 500
 
 AssessClusterFn = Callable[[str, Sequence[ASRSReport], RiskScore], ClusterAssessment]
 
@@ -67,10 +81,37 @@ def run_batch(
 ) -> list[ClusterAssessment]:
     """Ingest, deterministically cluster, score, and persist a batch.
 
+    Thin wrapper over ``run_triage`` for callers that only need cluster
+    assessments (the pre-T1-01 public contract; every existing caller and test
+    keeps working unchanged). Use ``run_triage`` directly when the severe
+    singleton queue is also needed, to avoid clustering the batch twice.
+    """
+    assessments, _singletons = run_triage(
+        reports, policy=policy, store=store, assess_cluster=assess_cluster
+    )
+    return assessments
+
+
+def run_triage(
+    reports: Sequence[ASRSReport],
+    *,
+    policy: FrozenRiskPolicy,
+    store: TriageStore,
+    assess_cluster: AssessClusterFn = _assess_cluster,
+) -> tuple[list[ClusterAssessment], list[SevereSingleton]]:
+    """Ingest, deterministically cluster, score, and persist a batch; separately
+    flag HDBSCAN noise reports against the frozen severe vocabulary.
+
     ``assess_cluster`` defaults to a deterministic structured-field stand-in so
     the no-credentials demo path is unaffected. A live run passes
     ``agents.orchestrate.live_assess_cluster`` (bound to a real Analyst agent via
     ``functools.partial``) instead; the risk gate stays deterministic either way.
+
+    Noise reports never reach ``assess_cluster``: carrying ``Cluster.noise``
+    explicitly (rather than relying on the ``noise-`` id prefix elsewhere in the
+    codebase) means a live run never spends a real Analyst call naming a bucket
+    of unrelated one-off reports that never surfaces in the UI as a cluster
+    anyway (T1-01, docs/TIER1_ENHANCEMENTS_SPEC.md).
     """
     for report in reports:
         store.put_report(report.acn, asdict(report))
@@ -81,7 +122,11 @@ def run_batch(
     )
     by_acn = {report.acn: report for report in reports}
     assessments: list[ClusterAssessment] = []
+    noise_reports: list[ASRSReport] = []
     for cluster in clusters:
+        if cluster.noise:
+            noise_reports.extend(by_acn[acn] for acn in cluster.member_acns)
+            continue
         members = [by_acn[acn] for acn in cluster.member_acns]
         risk = score_cluster(members, policy)
         assessment = assess_cluster(cluster.cluster_id, members, risk)
@@ -97,7 +142,6 @@ def run_batch(
                 "member_acns": list(cluster.member_acns),
                 "risk_score": risk.total,
                 "status": status,
-                "noise": cluster.noise,
                 "name": assessment.name,
                 # ARCHITECTURE.md's clusters/ spec calls for the analyst output,
                 # which is the name AND the hazard statement. The statement is
@@ -106,7 +150,92 @@ def run_batch(
             },
         )
         assessments.append(assessment)
-    return sorted(assessments, key=lambda assessment: assessment.risk.total, reverse=True)
+    ranked = sorted(assessments, key=lambda assessment: assessment.risk.total, reverse=True)
+    return ranked, find_severe_singletons(noise_reports, policy)
+
+
+def _build_evidence(report: ASRSReport) -> EvidenceRecord:
+    """Normalize whitespace before applying the excerpt cap, so the cap counts
+    meaningful characters rather than raw formatting (T1-01 5.2)."""
+    normalized = " ".join(report.narrative.split())
+    return EvidenceRecord(
+        acn=report.acn,
+        narrative_excerpt=normalized[:NARRATIVE_EXCERPT_LIMIT],
+        narrative_truncated=len(normalized) > NARRATIVE_EXCERPT_LIMIT,
+        date_yyyymm=report.date_yyyymm,
+        flight_phase=report.flight_phase,
+        component=report.component,
+        anomaly_labels=report.anomaly_labels,
+        results=report.results,
+    )
+
+
+def find_severe_singletons(
+    reports: Sequence[ASRSReport], policy: FrozenRiskPolicy
+) -> list[SevereSingleton]:
+    """Flag HDBSCAN noise reports against the frozen severe vocabulary.
+
+    A categorical triage rule (``pipeline.risk.severe_matches``), not a
+    one-report risk score -- see ``SevereSingleton``'s docstring. Sorted by
+    report month descending, then ACN ascending, with missing months sorted
+    last (T1-01 section 6.1.5).
+    """
+    by_acn = {report.acn: report for report in reports}
+    singletons = []
+    for report in reports:
+        matched_results, matched_events = severe_matches(report, policy)
+        if matched_results or matched_events:
+            singletons.append(
+                SevereSingleton(
+                    acn=report.acn,
+                    matched_severe_results=matched_results,
+                    matched_severe_events=matched_events,
+                    evidence=_build_evidence(report),
+                )
+            )
+
+    def _sort_key(singleton: SevereSingleton) -> tuple[int, int, str]:
+        month = by_acn[singleton.acn].date_yyyymm
+        if month and month.isdigit():
+            return (0, -int(month), singleton.acn)
+        return (1, 0, singleton.acn)
+
+    return sorted(singletons, key=_sort_key)
+
+
+def build_artifact_payload(
+    reports: Sequence[ASRSReport],
+    assessments: Sequence[ClusterAssessment],
+    briefs: Mapping[str, str],
+    singletons: Sequence[SevereSingleton],
+    *,
+    run_id: str | None = None,
+    run_at: str | None = None,
+) -> JsonDict:
+    """Assemble the schema-v2 artifact object written by ``--output``/``make artifact``.
+
+    ``run_id``/``run_at`` are generated once here by default; tests pass
+    explicit values instead so output is reproducible (T1-01 5.1).
+    """
+    if run_id is None:
+        run_id = f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}-{uuid4().hex[:6]}"
+    if run_at is None:
+        run_at = datetime.now(UTC).isoformat()
+    return {
+        "schema_version": 2,
+        "run": {
+            "run_id": run_id,
+            "run_at": run_at,
+            # Counts every normalized input report, including HDBSCAN noise --
+            # not just the members visible in a cluster or singleton queue.
+            "reports_triaged": len(reports),
+        },
+        "clusters": [
+            {**asdict(assessment), "brief": briefs[assessment.cluster_id]}
+            for assessment in assessments
+        ],
+        "severe_singletons": [asdict(singleton) for singleton in singletons],
+    }
 
 
 def draft_brief(assessment: ClusterAssessment) -> str:
@@ -271,20 +400,21 @@ def main() -> None:
             "store": store,
             "fail_agents": frozenset(args.fail_agent),
         }
-    assessments = run_batch(reports, policy=policy, store=store, assess_cluster=assess_cluster)
+    assessments, singletons = run_triage(
+        reports, policy=policy, store=store, assess_cluster=assess_cluster
+    )
     by_acn = {report.acn: report for report in reports}
-    payload = []
+    briefs: dict[str, str] = {}
     for assessment in assessments:
-        if assessment.cluster_id.startswith("noise-"):
-            continue
         brief = _brief_for(assessment, reports, by_acn, live_brief_kwargs)
         # Briefs are drafted in this second pass, after triage_batch has written
         # the cluster documents, so they need their own write. Without it the
         # brief exists only in this process's stdout/--output JSON and never
         # reaches the store the UI and the audit trail read from.
         store.put_cluster_brief(assessment.cluster_id, brief)
-        payload.append({**asdict(assessment), "brief": brief})
-    output = json.dumps(payload, indent=2, default=str)
+        briefs[assessment.cluster_id] = brief
+    artifact = build_artifact_payload(reports, assessments, briefs, singletons)
+    output = json.dumps(artifact, indent=2, default=str)
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(output, encoding="utf-8")

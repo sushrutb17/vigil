@@ -53,6 +53,41 @@ class RiskScore:
 
 
 @dataclass(frozen=True, slots=True)
+class EvidenceRecord:
+    """A drill-down view of one report's narrative and structured facets.
+
+    Shared by the severe-singleton queue (T1-01) and, in a future pass, the
+    per-cluster ACN evidence drill-down (T1-02) -- see
+    docs/TIER1_ENHANCEMENTS_SPEC.md section 5.2.
+    """
+
+    acn: str
+    narrative_excerpt: str
+    narrative_truncated: bool
+    date_yyyymm: str | None = None
+    flight_phase: str | None = None
+    component: str | None = None
+    anomaly_labels: tuple[str, ...] = ()
+    results: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class SevereSingleton:
+    """A noise (unclustered) report that matches the frozen severe vocabulary.
+
+    This is a categorical triage rule, not a one-report risk score: no Analyst
+    name, hazard statement, risk score, or investigator brief is generated for
+    it. It is a source report surfaced for human review, not a fabricated
+    one-report cluster (docs/TIER1_ENHANCEMENTS_SPEC.md, T1-01 section 6.1.8).
+    """
+
+    acn: str
+    matched_severe_results: tuple[str, ...]
+    matched_severe_events: tuple[str, ...]
+    evidence: EvidenceRecord
+
+
+@dataclass(frozen=True, slots=True)
 class ClusterAssessment:
     cluster_id: str
     name: str

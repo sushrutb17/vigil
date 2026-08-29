@@ -19,13 +19,14 @@ from __future__ import annotations
 
 import json
 import os
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
 import streamlit as st
 
 from pipeline.risk import FrozenRiskPolicy
-from pipeline.run_batch import demo_reports, draft_brief, run_batch
+from pipeline.run_batch import demo_reports, draft_brief, run_triage
 from pipeline.store import MemoryStore, TriageStore
 
 ARTIFACT_PATH = Path("artifacts/demo_run.json")
@@ -61,31 +62,68 @@ def _cluster_payload(cluster: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _clusters_from_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "id": entry["cluster_id"],
+            "name": entry["name"],
+            "risk": entry["risk"]["total"],
+            "escalated": entry["risk"]["escalated"],
+            # Artifacts written before this field existed are single fresh
+            # runs against an empty ledger, so every escalation in them is
+            # by construction new.
+            "new_this_run": entry.get("newly_escalated", entry["risk"]["escalated"]),
+            "members": tuple(entry["member_acns"]),
+            "facets": entry["facets"],
+            "brief": entry["brief"],
+        }
+        for entry in entries
+    ]
+
+
+def _singletons_from_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "acn": entry["acn"],
+            "matched_severe_results": tuple(entry["matched_severe_results"]),
+            "matched_severe_events": tuple(entry["matched_severe_events"]),
+            "evidence": entry["evidence"],
+        }
+        for entry in entries
+    ]
+
+
 @st.cache_data(show_spinner=False)
-def _load_clusters() -> tuple[list[dict[str, Any]], str]:
-    """Return (clusters, source_label) from the real-run artifact or the fixture."""
+def _load_artifact() -> tuple[list[dict[str, Any]], list[dict[str, Any]], int, str]:
+    """Return (clusters, severe_singletons, reports_triaged, source_label).
+
+    Accepts the current artifact schema (a ``schema_version: 2`` object with
+    ``run``/``clusters``/``severe_singletons``) and the legacy top-level list a
+    pre-T1-01 artifact used. A legacy artifact produces an empty singleton
+    queue and derives ``reports_triaged`` from visible cluster members (its own
+    run predates the noise-vs-cluster split), rather than failing to load
+    (T1-01, docs/TIER1_ENHANCEMENTS_SPEC.md 5.1).
+    """
     if ARTIFACT_PATH.exists():
         payload = json.loads(ARTIFACT_PATH.read_text(encoding="utf-8"))
-        clusters = [
-            {
-                "id": entry["cluster_id"],
-                "name": entry["name"],
-                "risk": entry["risk"]["total"],
-                "escalated": entry["risk"]["escalated"],
-                # Artifacts written before this field existed are single fresh
-                # runs against an empty ledger, so every escalation in them is
-                # by construction new.
-                "new_this_run": entry.get("newly_escalated", entry["risk"]["escalated"]),
-                "members": tuple(entry["member_acns"]),
-                "facets": entry["facets"],
-                "brief": entry["brief"],
-            }
-            for entry in payload
-        ]
-        return clusters, "real ASRS slice · live Gemini agents"
+        if isinstance(payload, list):
+            clusters = _clusters_from_entries(payload)
+            singletons: list[dict[str, Any]] = []
+            reports_triaged = sum(len(c["members"]) for c in clusters)
+        elif isinstance(payload, dict):
+            version = payload.get("schema_version")
+            if version != 2:
+                raise ValueError(f"unsupported artifact schema_version: {version!r}")
+            clusters = _clusters_from_entries(payload["clusters"])
+            singletons = _singletons_from_entries(payload.get("severe_singletons", []))
+            reports_triaged = payload["run"]["reports_triaged"]
+        else:
+            raise ValueError("artifact must be a JSON object (schema v2) or list (legacy)")
+        return clusters, singletons, reports_triaged, "real ASRS slice · live Gemini agents"
 
     policy = FrozenRiskPolicy.from_path(Path("config/frozen.yaml"))
-    assessments = run_batch(demo_reports(), policy=policy, store=MemoryStore())
+    reports = demo_reports()
+    assessments, severe = run_triage(reports, policy=policy, store=MemoryStore())
     clusters = [
         {
             "id": assessment.cluster_id,
@@ -98,9 +136,17 @@ def _load_clusters() -> tuple[list[dict[str, Any]], str]:
             "brief": draft_brief(assessment),
         }
         for assessment in assessments
-        if not assessment.cluster_id.startswith("noise-")
     ]
-    return clusters, "bundled fixture · no credentials required"
+    singletons = [
+        {
+            "acn": singleton.acn,
+            "matched_severe_results": singleton.matched_severe_results,
+            "matched_severe_events": singleton.matched_severe_events,
+            "evidence": asdict(singleton.evidence),
+        }
+        for singleton in severe
+    ]
+    return clusters, singletons, len(reports), "bundled fixture · no credentials required"
 
 
 def _sorted_choices(clusters: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
@@ -113,23 +159,7 @@ def _sorted_choices(clusters: list[dict[str, Any]]) -> dict[str, dict[str, Any]]
     }
 
 
-def main() -> None:
-    st.set_page_config(page_title="VIGIL", page_icon="◉", layout="wide")
-    st.title("VIGIL")
-    st.caption("Public ASRS safety-signal triage · drafts only · human approval is terminal")
-
-    clusters, source_label = _load_clusters()
-    if not clusters:
-        st.info("No non-noise clusters in this batch.")
-        return
-
-    escalated_count = sum(1 for cluster in clusters if cluster["escalated"])
-    summary = st.columns(3)
-    summary[0].metric("Hazard clusters", len(clusters))
-    summary[1].metric("Escalated for review", escalated_count)
-    summary[2].metric("Reports triaged", sum(len(c["members"]) for c in clusters))
-    st.caption(f"Source: {source_label}")
-
+def _render_cluster_queue(clusters: list[dict[str, Any]]) -> None:
     choices = _sorted_choices(clusters)
     selected_label = st.sidebar.selectbox("Hazard clusters", list(choices))
     cluster = choices[selected_label]
@@ -181,6 +211,81 @@ def main() -> None:
             mime="text/markdown",
             help="The human carries the draft onward. VIGIL never sends or files anything.",
         )
+
+
+def _render_singleton_queue(singletons: list[dict[str, Any]]) -> None:
+    """T1-01: HDBSCAN noise that matches the frozen severe vocabulary directly.
+
+    Deliberately no Analyst name, hazard statement, risk score, or brief here —
+    this is a source report surfaced for human review, not a fabricated
+    one-report cluster (docs/TIER1_ENHANCEMENTS_SPEC.md, T1-01 section 6.1.8).
+    """
+    choices = {
+        f"ACN {s['acn']} · {len(s['matched_severe_results']) + len(s['matched_severe_events'])} "
+        f"matched term(s)": s
+        for s in singletons
+    }
+    selected_label = st.sidebar.selectbox("Severe singletons", list(choices))
+    singleton = choices[selected_label]
+    evidence = singleton["evidence"]
+
+    st.subheader(f"Severe singleton · ACN {singleton['acn']}")
+    st.caption(
+        "Did not join any hazard cluster this run (HDBSCAN noise). Surfaced because it "
+        "matches the frozen severe-result/severe-event vocabulary directly — a categorical "
+        "check, not a cluster risk score."
+    )
+    if singleton["matched_severe_results"]:
+        st.write("**Matched severe results:**", ", ".join(singleton["matched_severe_results"]))
+    if singleton["matched_severe_events"]:
+        st.write("**Matched severe events:**", ", ".join(singleton["matched_severe_events"]))
+
+    left, right = st.columns([1, 1])
+    with left:
+        st.write("**Flight phase:**", evidence.get("flight_phase") or "Not recorded")
+        st.write("**Component:**", evidence.get("component") or "Not recorded")
+        st.write("**Report month:**", evidence.get("date_yyyymm") or "Not recorded")
+    with right:
+        anomaly_labels = evidence.get("anomaly_labels") or []
+        results = evidence.get("results") or []
+        st.write("**Anomaly labels:**", ", ".join(anomaly_labels) or "Not recorded")
+        st.write("**Results:**", ", ".join(results) or "Not recorded")
+
+    st.markdown("**Narrative excerpt**")
+    excerpt = evidence.get("narrative_excerpt", "")
+    st.write(excerpt + ("…" if evidence.get("narrative_truncated") else ""))
+
+
+def main() -> None:
+    st.set_page_config(page_title="VIGIL", page_icon="◉", layout="wide")
+    st.title("VIGIL")
+    st.caption("Public ASRS safety-signal triage · drafts only · human approval is terminal")
+
+    clusters, singletons, reports_triaged, source_label = _load_artifact()
+    if not clusters and not singletons:
+        st.info("No hazard clusters or severe singletons in this batch.")
+        return
+
+    escalated_count = sum(1 for cluster in clusters if cluster["escalated"])
+    summary = st.columns(4)
+    summary[0].metric("Hazard clusters", len(clusters))
+    summary[1].metric("Escalated for review", escalated_count)
+    summary[2].metric("Severe singletons", len(singletons))
+    summary[3].metric("Reports triaged", reports_triaged)
+    st.caption(f"Source: {source_label}")
+
+    queue_options = ["Hazard clusters"]
+    if singletons:
+        queue_options.append(f"Severe singletons ({len(singletons)})")
+    queue = st.sidebar.radio("Queue", queue_options) if len(queue_options) > 1 else queue_options[0]
+
+    if queue == "Hazard clusters":
+        if clusters:
+            _render_cluster_queue(clusters)
+        else:
+            st.info("No hazard clusters in this batch — check Severe singletons.")
+    else:
+        _render_singleton_queue(singletons)
 
     st.divider()
     st.caption(

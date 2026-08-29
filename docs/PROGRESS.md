@@ -1063,6 +1063,71 @@ Made the cloud state reproducible in `infra/deploy.sh`: it now ensures the
 dedicated scheduler account, grants job-level invoker, and idempotently creates
 or updates the JSON POST trigger. Deploying does not execute it automatically.
 
+## 2026-08-30 (Sun) — T1-01 severe-but-unclustered queue, implemented and tested
+
+Post-submission work, requested directly: implement the first Tier 1 enhancement
+from `docs/FUTURE_ENHANCEMENTS.md` / `docs/TIER1_ENHANCEMENTS_SPEC.md`
+(Codex's docs-collateral spec, section 6) end to end. Not on the critical path
+to the Aug 31 deadline -- that was already submission-ready (deploy, GitHub
+push, video, and Devpost submission were the only things left, all manual).
+
+The gap this closes: the measured noise fraction is 0.837 -- roughly 4 in 5
+reports in the real 5k slice fall into HDBSCAN noise and, before this change,
+never appeared anywhere in the UI. A one-off catastrophic report is exactly
+what ASRS exists to catch, and clustering was silently acting as a filter, not
+just a lens.
+
+What changed:
+- `pipeline/models.py`: new `EvidenceRecord` and `SevereSingleton` frozen
+  dataclasses.
+- `pipeline/risk.py`: new `severe_matches(report, policy)` -- a pure
+  categorical check against the frozen severe-result/severe-event vocabulary.
+  Deliberately not `score_cluster`, whose frequency/trend terms describe a
+  group and would obscure a single report's actual qualification rule.
+- `pipeline/run_batch.py`: `run_batch()` is now a thin wrapper over a new
+  `run_triage()`, which carries `Cluster.noise` explicitly (rather than the
+  `noise-` id-prefix check scattered around before) and skips
+  `assess_cluster` entirely for noise. That matters in `--live` mode: before
+  this change, the single "noise" pseudo-cluster HDBSCAN produces at real
+  scale went through the same live Analyst call as every real cluster --
+  spending a real Gemini call to name a bucket of unrelated one-off reports
+  that never surfaced in the UI as a cluster anyway. New
+  `find_severe_singletons()` flags noise reports against `severe_matches` and
+  sorts them by report month descending then ACN ascending (missing months
+  last, per the spec). New `build_artifact_payload()` assembles the artifact
+  as a versioned object (`schema_version: 2`, `run` metadata including
+  `reports_triaged` -- the full input count, not just visible queue members --
+  plus `clusters` and `severe_singletons`).
+- `ui/streamlit_app.py`: the loader now accepts both the new schema and the
+  legacy top-level list a pre-T1-01 artifact used (a fresh clone or the
+  currently-committed `artifacts/demo_run.json` -- still schema v1 until
+  `make artifact` is rerun with live credentials -- keeps working, with an
+  empty singleton queue and a derived `reports_triaged`), and raises loudly on
+  an unrecognized future schema version rather than silently misreading it. A
+  new "Severe singletons" sidebar queue appears only when non-empty, with the
+  matched severe terms and an evidence panel (narrative excerpt, phase,
+  component, month, labels). Deliberately no Analyst name, hazard statement,
+  risk score, or brief for a singleton -- it's a source report surfaced for
+  human review, not a fabricated one-report cluster.
+
+Verification: `tests/test_severe_singletons.py` (13 tests covering every
+bullet in the spec's required-tests list, including the literal acceptance
+scenario -- a fixture with a real cluster, a severe noise report, and a
+non-severe noise report showing exactly one singleton) plus
+`tests/test_streamlit_app.py` (Streamlit's own `AppTest` API, no browser --
+confirms the queue actually renders, is selectable, and disappears entirely
+when there are no singletons, not just that the loader returns the right
+Python values). Also ran `python -m pipeline.run_batch --demo --output ...`
+end to end and inspected the real JSON output, and ran three ad hoc UI-loader
+checks (v2 artifact, legacy v1 list, and an unknown future version correctly
+raising). Full suite: 68/68 pass, ruff clean.
+
+Not done: the committed `artifacts/demo_run.json` is not regenerated -- that
+needs live Gemini credentials and network this session doesn't have; the
+loader's legacy-list fallback means the deployed UI keeps working as-is
+(0 singletons shown) until someone runs `make artifact` for real. T1-02/T1-03
+(full)/T1-04 remain open, per `docs/PHASES.md` Phase 8.
+
 <!-- Add a new dated section above this line each time we make a decision, ship a
      feature, or change status. Keep entries short: what changed, what's verified,
      what's still open. -->

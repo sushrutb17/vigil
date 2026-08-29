@@ -204,6 +204,22 @@ would be dishonest.
 
 ---
 
+## Phase 8 — Tier 1 Enhancements *(post-submission, docs/FUTURE_ENHANCEMENTS.md)*
+
+Not required for Devpost submission. Tracked here because `docs/TIER1_ENHANCEMENTS_SPEC.md`
+(written in the `vigil-docs` worktree) turns the Tier 1 roadmap into acceptance
+criteria per item; this table mirrors its status column so `PHASES.md` stays the
+single status board CLAUDE.md's boot protocol points a new session at.
+
+| Feature | Status | Note |
+|---|---|---|
+| T1-01 — Severe-but-unclustered queue | ✅ Done | Implemented 2026-08-29 per `docs/TIER1_ENHANCEMENTS_SPEC.md` section 6. `pipeline.risk.severe_matches` is a pure categorical check (frozen severe-result/severe-event vocabulary, reused read-only); `pipeline.run_batch.find_severe_singletons` flags HDBSCAN noise reports against it and never assigns a name, hazard statement, risk score, or brief to one. `run_batch()` (now a thin wrapper over new `run_triage()`) carries `Cluster.noise` explicitly and skips `assess_cluster` entirely for noise — in `--live` mode this is a real Analyst call no longer spent naming a bucket of unrelated one-off reports. Artifact moved to a versioned schema (`schema_version: 2`, `run`/`clusters`/`severe_singletons`); `ui/streamlit_app.py`'s loader accepts both the new schema and the legacy top-level list (regenerate with `make artifact` to get real singletons into the deployed snapshot — the committed `artifacts/demo_run.json` is still schema v1 until that's rerun), and rejects an unrecognized future version loudly rather than silently. UI gained a "Severe singletons" sidebar queue (only shown when non-empty) with matched-term display and an evidence panel (narrative excerpt, phase, component, month, labels), and the "Reports triaged" metric now reads the artifact's own count instead of summing only visible cluster members. 21 new tests (`tests/test_severe_singletons.py`, `tests/test_streamlit_app.py` using Streamlit's `AppTest`) plus the full existing suite: 68/68 pass, ruff clean. Not yet re-verified against a real live `--live` run or a redeployed Cloud Run UI — that needs network/credentials this session doesn't have. |
+| T1-02 — ACN evidence drill-down | ⬜ Not Started | Spec written; not started. `EvidenceRecord`/`_build_evidence` from T1-01 are reused, not duplicated, when this is picked up. |
+| T1-03 — Edit-before-approve + required rejection reason | 🔶 Partial | Approve/Reject persistence (this repo's earlier Phase 1 work) is the existing foundation the spec's status table already credits; editing, required reasons, atomic decision records, and post-edit citation re-validation are not built. |
+| T1-04 — Cross-run hazard identity and history | 🔶 Partial | Escalation-member Jaccard matching and the NEW THIS RUN flag exist; persistent `hazards/` records, run observations, and history UI do not. |
+
+---
+
 *Last full audit: 2026-08-28, by direct inspection of every file in `agents/`,
 `pipeline/`, `eval/`, `ui/`, `infra/`, `config/` plus a clean-environment test run
 (14/14 pass) and demo run. Update this file in place — it is a status board, not a
