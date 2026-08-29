@@ -185,7 +185,7 @@ would be dishonest.
 | UI: "NEW THIS RUN" badge on clusters | ⬜ Not Started | Added 2026-08-29: analysts care about *emerging* patterns; the escalation-idempotency ledger already computes member-set overlap vs prior runs — this surfaces existing state in the UI, no new pipeline logic |
 | UI: Approve → download brief as Markdown (`st.download_button`) | ✅ Done | Implemented 2026-08-29. Downloads `vigil-brief-<cluster_id>.md`; help text states the human carries the draft onward and VIGIL never sends or files anything (guardrail #6 intact). |
 | UI: per-cluster trend sparkline (stretch, last in line) | ⬜ Not Started | Added 2026-08-29: genuinely useful to analysts, but trend is already encoded in the risk score — build only after every other Phase 3–6 item is ✅ |
-| README: spin-up steps, architecture PNG, metrics table | 🔶 Partial | Spin-up steps exist; no PNG exported from `docs/asrs-agent-architecture.mermaid` yet; no metrics table (no real metrics yet — Phase 3/5) |
+| README: spin-up steps, architecture PNG, metrics table | 🔶 Partial | Spin-up steps exist. **Metrics table added 2026-08-29** with the real Phase 5 numbers (baseline vs v1 vs promoted v2, dev and holdout side by side per EVAL.md), plus a `make improve` section, a failure-tolerance section with the exact `--fail-agent` command, and the loop's guardrails written up as enforced-by-test rather than promised. **Still missing: the architecture PNG** exported from `docs/asrs-agent-architecture.mermaid` — the one remaining README gap, and a stated submission deliverable. |
 
 ---
 
@@ -194,7 +194,7 @@ would be dishonest.
 | Feature | Status | Note |
 |---|---|---|
 | Demo script | ✅ Done | `docs/DEMO_SCRIPT.md` |
-| Failure-tolerance demo path recorded | ⬜ Not Started | 🚫 Blocked by: Phase 6 fan-out handling |
+| Failure-tolerance demo path recorded | ⬜ Not Started | **Unblocked 2026-08-29** — Phase 6 fan-out handling is done and demonstrated live. Recording command: `python -m pipeline.run_batch --demo --live --fail-agent risk`. It prints a fault-injection banner to stderr, then a `DEGRADED` brief with the Risk section fallen back to its cited deterministic line. Roughly 4 live calls, ~20s — cheap to re-shoot. |
 | ≤4-min video (GCP console/Cloud Run proof + unedited live execution), uploaded public | ⬜ Not Started | 🚫 Blocked by: Phase 4 deploy |
 | Devpost submission draft (description, track=Taskmaster, repo/hosted/video URLs, diagram) | ⬜ Not Started | Description must include a literal **"The Twist"** section (restraint made mechanical: no-LLM clustering, frozen thresholds, locked holdout, citation critic, the caught reward-hack) + the ASRS institutional-mirror paragraph — see SUBMISSION.md |
 | Bonus: dev.to/Medium writeup + LinkedIn post | ⬜ Not Started | Stretch, per BUILD_PLAN cut list |
