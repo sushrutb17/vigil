@@ -6,21 +6,47 @@ a human is the only terminal approval gate.
 
 ## What is runnable now
 
-The repository includes a complete deterministic local demo: schema normalization,
-TF-IDF embedding fallback, seeded HDBSCAN clustering, frozen risk routing,
-idempotency, ACN citation stripping, evaluation guards, and a Streamlit review UI.
+### No credentials required
 
 ```bash
 uv sync --all-groups
-make demo
-make ui
-make check
+make demo     # end-to-end pipeline on a bundled six-report fixture
+make ui       # Streamlit review UI
+make check    # ruff + pytest
 ```
 
-The demo operates only on a tiny bundled fixture. To fetch the approved public
-dataset later, run `make download`. It downloads only the Hugging Face Parquet
-export and makes the test split a one-time, read-only `data/holdout/test.parquet`
-copy. Only `eval/holdout_score.py` is allowed to read that path.
+`make ui` serves `artifacts/demo_run.json` when present — a committed snapshot of
+a real live run over real ASRS data (23 hazard clusters, 4 escalated, 816 reports
+triaged), so the UI shows genuine model-written briefs without any credentials.
+It falls back to the bundled fixture if that file is absent.
+
+### With real data
+
+```bash
+make download   # HF Parquet export; locks data/holdout/test.parquet read-only
+make run-real   # 5,000-report seeded slice, deterministic stages only
+```
+
+`make download` fetches only the Hugging Face Parquet export and makes the test
+split a one-time, read-only `data/holdout/test.parquet` copy. Only
+`eval/holdout_score.py` may read that path, and it is excluded from every
+container image.
+
+### With live Gemini agents
+
+Put a Google AI Studio key in `.env` (gitignored) as `GOOGLE_API_KEY=...`, then:
+
+```bash
+set -a; source .env; set +a
+make run-live   # adds a live Analyst call per cluster, plus the parallel
+                # Coordinator (Precedent ∥ Risk ∥ Brief Writer) and Critic
+                # for every escalated cluster
+make artifact   # same run, saved to artifacts/demo_run.json for the UI
+```
+
+Deterministic stages stay deterministic in live mode: clustering and risk scoring
+are byte-identical with and without `--live`. Only naming, prose, and brief
+drafting come from the model.
 
 ## Architecture and safety invariants
 
@@ -40,19 +66,35 @@ included or required for the local demo.
 For detailed design, evaluation, delivery plan, and recording plan, see
 [the project docs](docs/ARCHITECTURE.md).
 
-## Cloud deployment (credential-dependent)
-
-After creating a Google Cloud project, enabling Cloud Run and Firestore, and
-authenticating `gcloud`, deploy with:
+## Cloud deployment
 
 ```bash
-GOOGLE_CLOUD_PROJECT=your-project infra/deploy.sh
+gcloud auth login
+gcloud config set project your-project
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com \
+    artifactregistry.googleapis.com secretmanager.googleapis.com
+
+set -a; source .env; set +a
+export GOOGLE_CLOUD_PROJECT=your-project
+make deploy
 ```
 
-The batch job and UI remain separate Cloud Run surfaces. Before a live run, set
-either Gemini API-key authentication for local ADK development or Vertex AI
-credentials for Cloud Run, then validate the model ID again in the official
-Google documentation.
+This deploys two separate Cloud Run surfaces, each with its own least-privilege
+service account rather than the default compute identity:
+
+- **`vigil-ui`** (public, `--allow-unauthenticated`) — holds **no IAM roles at
+  all**. It only serves the committed `artifacts/demo_run.json` snapshot: no
+  model calls, no Firestore, no secrets.
+- **`vigil-batch`** (Cloud Run job) — holds `secretmanager.secretAccessor` on a
+  dedicated `gemini-api-key` secret (created by `deploy.sh`, never passed as a
+  plain env var) and `roles/datastore.user`. Runs the full pipeline with
+  `--live --firestore`, exercising all three mandatory stack components in one
+  execution.
+
+`.gcloudignore` and `.dockerignore` both exclude `.env`, `.venv`, `data/raw`, and
+`data/holdout` — the locked holdout must never reach a container image. See
+[`infra/README.md`](infra/README.md) for why the Dockerfile lives at the repo
+root instead of `infra/`.
 
 ## Data credit
 

@@ -62,7 +62,7 @@ every feature below has to satisfy), `DATA.md` / `EVAL.md` / `DEMO_SCRIPT.md` /
 | Citation gate / critic (`agents/critic.py`) | ✅ Done | `strip_uncited_claims`, preserves `DEGRADED` banner |
 | `MemoryStore` w/ idempotency (Jaccard overlap > 0.6 on escalations) | ✅ Done | |
 | Test suite + lint | ✅ Done | 14/14 tests pass, ruff clean — verified 2026-08-28 |
-| Streamlit UI: cluster browser, brief view (`ui/streamlit_app.py`) | ✅ Done | Demo-fixture mode only |
+| Streamlit UI: cluster browser, brief view (`ui/streamlit_app.py`) | ✅ Done | Rewritten 2026-08-29 to serve **real data**: loads `artifacts/demo_run.json` (a committed snapshot of a real `--live` run over the real ASRS slice) and falls back to the bundled fixture if absent, so a fresh clone still works. Adds a triage summary header (23 clusters / 4 escalated / 816 reports), analyst queue ordering (escalated first, then descending risk, ⚠-marked), and collapsible ACN/facet panels. Verified locally against the real artifact. |
 | UI Approve/Reject persists decisions to store as rejections/negative examples | ⬜ Not Started | Buttons currently only set local `st.session_state` — nothing written to `MemoryStore`/Firestore. Architecture doc requires `rejections/` collection feeding future Analyst prompts. **Elevated 2026-08-29:** best story-per-hour item — one click on video evidences state management (30% rubric criterion) and learning-from-human-rejections (40% criterion). |
 
 ---
@@ -101,11 +101,13 @@ every feature below has to satisfy), `DATA.md` / `EVAL.md` / `DEMO_SCRIPT.md` /
 
 | Feature | Status | Note |
 |---|---|---|
-| `FirestoreStore` implementation (`pipeline/store.py`) | 🔶 Partial | Code mirrors `MemoryStore` behavior exactly (reports/clusters/agent_log/escalations); never run against a real Firestore instance |
-| `infra/Dockerfile` | 🔶 Partial | Written, never built |
-| `infra/deploy.sh` | 🔶 Partial | Written, never run |
-| Cloud Run UI service deployed | ⬜ Not Started | 🚫 Blocked by: Firestore instance (Phase 0), live credentials (Phase 3) |
-| Cloud Run batch job deployed | ⬜ Not Started | 🚫 Blocked by: same |
+| `FirestoreStore` implementation (`pipeline/store.py`) | 🔶 Partial | Code mirrors `MemoryStore` behavior exactly (reports/clusters/agent_log/escalations). Now reachable: `run_batch --firestore` selects it (added 2026-08-29). Still never executed against the real Firestore instance — that happens on the first `vigil-batch` job execution. |
+| `Dockerfile` (repo root, **not** `infra/`) | 🔶 Partial | Written, never built. **Moved to repo root 2026-08-29**: `gcloud run deploy --source .` only detects a root Dockerfile and silently falls back to buildpacks otherwise — it would not have errored, just built the wrong image. Deviates from the CLAUDE.md/ARCHITECTURE.md layout; rationale recorded in `infra/README.md`. Sets Streamlit headless/XSRF/`$PORT` flags needed behind Cloud Run's TLS-terminating proxy. |
+| `.gcloudignore` + `.dockerignore` | ✅ Done | Added 2026-08-29. Neither existed; `--source .` would have uploaded `.venv` (594MB), `data/raw` (60MB), **and `data/holdout/`** — baking the locked holdout into a container image (guardrail #3 violation). Two files are required because they govern different tools: `.gcloudignore` for `gcloud run deploy`, `.dockerignore` for `docker build`. Both also exclude `.env` (live API key). Keep in sync. |
+| `infra/deploy.sh` | 🔶 Partial | Rewritten 2026-08-29, still never run. Creates two least-privilege runtime service accounts, stores the Gemini key in Secret Manager, deploys UI service + batch job, prints the hosted URL. |
+| Least-privilege deploy identities + Secret Manager | ✅ Done | Added 2026-08-29 after three automated security review findings (see PROGRESS.md). `vigil-ui-run` holds **no IAM roles at all** (the public UI only serves a static artifact); `vigil-batch-run` holds `secretmanager.secretAccessor` on the one secret plus `roles/datastore.user`. Neither uses the default compute SA, which carries primitive Editor project-wide — a public `--allow-unauthenticated` service running as project editor was the most serious issue found. |
+| Cloud Run UI service deployed | ⬜ Not Started | Unblocked — all prerequisites done. Ready to run `make deploy`. |
+| Cloud Run batch job deployed | ⬜ Not Started | Unblocked. Job runs `--demo --live --firestore`, so one execution exercises all three mandatory stack components (ADK/Gemini, Cloud Run, Firestore) and creates the Firestore collections. |
 | Cloud Scheduler weekly trigger for the batch job | ⬜ Not Started | Added 2026-08-29 (rubric alignment): makes the hackathon's "agents that run in the background… asynchronously" tagline literal; Taskmaster judges assess whether the agent *intercepts* a background workflow. One `gcloud scheduler jobs create`; show the trigger config ~3s in the video's console segment. Human gate stays terminal. |
 | End-to-end live run on Cloud Run against real data | ⬜ Not Started | This is the actual "deployed on Google Cloud" proof Devpost requires |
 
@@ -130,7 +132,7 @@ every feature below has to satisfy), `DATA.md` / `EVAL.md` / `DEMO_SCRIPT.md` /
 | Parallel fan-out partial-failure handling (2-of-3 sub-agents survive → `DEGRADED` brief) | 🔶 Partial | Written in `agents/orchestrate.live_draft_brief` (Phase 3) — per-call try/except around the 3 concurrent sub-agent calls, `DEGRADED` banner when survived<3, `CoordinatorFailure` when survived<2. Not yet demonstrated live (needs a real or forced sub-agent failure to observe) — that's the "kill one sub-agent → DEGRADED brief" demo beat from ARCHITECTURE.md. |
 | Resumable batch job (skip ACNs already processed) | 🔶 Partial | `put_report` uses `setdefault` so a re-run won't overwrite, but there's no skip-before-reprocessing logic, so a re-run still redoes clustering/scoring work |
 | UI: "NEW THIS RUN" badge on clusters | ⬜ Not Started | Added 2026-08-29: analysts care about *emerging* patterns; the escalation-idempotency ledger already computes member-set overlap vs prior runs — this surfaces existing state in the UI, no new pipeline logic |
-| UI: Approve → download brief as Markdown (`st.download_button`) | ⬜ Not Started | Added 2026-08-29: lets the video end with the workflow *completing* (an artifact in hand) without violating guardrail #6 — nothing is auto-sent; the human carries it out |
+| UI: Approve → download brief as Markdown (`st.download_button`) | ✅ Done | Implemented 2026-08-29. Downloads `vigil-brief-<cluster_id>.md`; help text states the human carries the draft onward and VIGIL never sends or files anything (guardrail #6 intact). |
 | UI: per-cluster trend sparkline (stretch, last in line) | ⬜ Not Started | Added 2026-08-29: genuinely useful to analysts, but trend is already encoded in the risk score — build only after every other Phase 3–6 item is ✅ |
 | README: spin-up steps, architecture PNG, metrics table | 🔶 Partial | Spin-up steps exist; no PNG exported from `docs/asrs-agent-architecture.mermaid` yet; no metrics table (no real metrics yet — Phase 3/5) |
 

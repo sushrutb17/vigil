@@ -473,6 +473,83 @@ the actual "deployed on GCP" Devpost requirement, and the largest remaining
 risk), UI Approve/Reject persistence, the DEGRADED demo path (needs a forced
 sub-agent failure to show), Phase 5 loop, video, Devpost draft, public repo push.
 
+## 2026-08-29 (Sat, cont'd 10) — Cloud Run deploy prep; three security findings fixed
+
+Reviewed `infra/` for the first time (it had never been run) and found several
+issues that would have caused a failed or unsafe first deploy.
+
+**Deploy-blocking / guardrail issues:**
+1. **No `.gcloudignore`.** `deploy.sh` uses `--source .`, so the upload would
+   have included `.venv` (594MB), `data/raw` (60MB), and **`data/holdout/`** —
+   baking the locked holdout into a container image. That is a guardrail #3
+   violation, not merely a size problem. Added, with the reason stated in the
+   file so a future reader does not "tidy it up."
+2. **Dockerfile was in `infra/`.** `gcloud run deploy --source .` only detects a
+   Dockerfile at the build-context root; with it in `infra/` gcloud silently
+   falls back to buildpack autodetection — no error, just a different and
+   (for a Streamlit entrypoint) wrong image. Moved to the repo root. This
+   deviates from the layout in CLAUDE.md/ARCHITECTURE.md, so `infra/README.md`
+   records why, including why the layout-preserving alternative (a
+   `cloudbuild.yaml` with `docker build -f`, plus manual Artifact Registry repo
+   creation and image tagging) was rejected: more moving parts and a second
+   failure surface on a step that has to work first try with ~2 days left.
+3. Dockerfile needed Streamlit's `headless` / `enableXsrfProtection=false` /
+   `$PORT` flags to work behind Cloud Run's TLS-terminating proxy.
+4. Caught one bug in my own first Dockerfile draft before it cost a build: I had
+   split dependency installation into an earlier layer for caching, but
+   `pyproject.toml` declares explicit packages, so `pip install .` fails unless
+   those directories are already present. Reverted to single-stage copy-then-
+   install and noted why, so the "optimization" is not reintroduced.
+
+**Three automated security review findings, all valid, all fixed:**
+- *No `.dockerignore`.* `.gcloudignore` governs only `gcloud run deploy`;
+  `docker build` reads `.dockerignore`, which did not exist — so a local
+  `docker build .` would have copied `.env` (the live Gemini API key) and
+  `data/holdout/` into the image. Worse, my Dockerfile comment asserted that
+  `.gcloudignore` protected the build context, which is false for the docker
+  path and would have discouraged a future reader from checking. Added
+  `.dockerignore` and corrected the comment to say both files are required for
+  different tools.
+- *API key passed via `--set-env-vars`.* Cloud Run env vars are readable by
+  anyone with project viewer access and persist in deployment history. Moved to
+  Secret Manager, mounted by reference with `--set-secrets`. (`printf '%s'`, not
+  `echo`, when writing the secret: a trailing newline in the payload would be
+  sent as part of the key and every model call would fail to authenticate.)
+- *Shared default compute service account.* Both workloads ran as the default
+  compute SA, which typically holds primitive **Editor** project-wide — meaning
+  the public `--allow-unauthenticated` Streamlit UI was effectively a project
+  editor, and any RCE/SSRF in Streamlit or app code would have yielded editor
+  credentials from the metadata server. This also **invalidated the previous
+  fix's claim** that "the UI gets no key at all": that was true only of
+  mounting; binding `secretAccessor` to the shared identity meant the UI's own
+  credentials could still read the key from Secret Manager. Now two dedicated
+  identities: `vigil-ui-run` with **zero** IAM roles (the UI only serves a
+  static artifact), `vigil-batch-run` with `secretAccessor` on that one secret
+  plus `roles/datastore.user`.
+
+Worth noting for the writeup: these three fixes are also *Architectural
+Discipline* evidence (30% of the rubric — "your engineering decisions, not just
+your ability to call an API"), not only hygiene.
+
+**Deployed-UI data strategy (a real decision, not a default):** the hosted UI
+serves `artifacts/demo_run.json`, a committed snapshot of an actual `--live` run
+over the real ASRS slice, rather than running the pipeline per pageview.
+Rationale: judging runs Sep 1 – Oct 1 and judges may open the URL at any point;
+a live-per-pageview UI would cost ~2 minutes of cold-start latency, real money
+per view, and would break if API quota or the key lapsed mid-window. The
+snapshot gives instant, free, deterministic real results — genuine model-written
+briefs over real data — while the live execution is what the video shows. The
+artifact is 91KB and is a deliberate `.gitignore` exception under `artifacts/*`,
+regenerable with `make artifact`.
+
+Also added: `run_batch --firestore` (selects `FirestoreStore`), and the UI now
+has a triage summary header, escalated-first queue ordering, and the
+Markdown brief download (Phase 6 item, done).
+
+Everything is committed and green (14/14 tests, ruff clean). Nothing has been
+deployed yet — `make deploy` is the next terminal step, and the first execution
+of `vigil-batch` will be the first time `FirestoreStore` has ever run.
+
 <!-- Add a new dated section above this line each time we make a decision, ship a
      feature, or change status. Keep entries short: what changed, what's verified,
      what's still open. -->
