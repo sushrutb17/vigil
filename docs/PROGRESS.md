@@ -446,6 +446,33 @@ credentials. Not yet run live — that's the next terminal step (`make run-live`
 again, now exercising the full pipeline including brief drafting for the 4
 escalated clusters found earlier).
 
+## 2026-08-29 (Sat, cont'd 9) — Full live agent graph verified end to end
+
+Ran the complete live pipeline on the real 5k slice. **All 4 escalated clusters
+got the full Coordinator+Critic sectioned brief (`## Hazard` / `## Precedent` /
+`## Risk Assessment` / `## Recommended Brief`), 0 DEGRADED** — meaning all three
+fan-out sub-agents succeeded on every escalated cluster, and the Critic pass ran
+clean. Non-escalated clusters correctly kept the cheap deterministic template.
+This closes the "single biggest gap between the architecture doc and the code"
+that PHASES.md has been flagging since the Aug 28 audit: the live ADK agent graph
+now actually runs in the operational batch path.
+
+**An unplanned validation of this morning's `frozen.yaml` fix:** the 4 clusters
+that escalated are "Airborne Traffic Conflicts and Near Midair Collisions," "VFR
+Traffic Conflicts and Near Midair Collisions," "Low-altitude encounters and
+collision risk with terrain/obstacles," and "Aircraft Cabin and Cockpit Fume and
+Odor Ingress." Those map directly onto the `Conflict NMAC` / `Conflict Airborne
+Conflict` / `Conflict Ground Conflict` values added to `severe_events` this
+morning. The corrected policy isn't just producing *some* escalations to make the
+threshold reachable — it's surfacing near-midair collisions as the top-ranked
+hazards in the batch, which is what "severe" ought to mean in aviation safety.
+Worth using as a demo beat: the system independently ranked NMAC clusters highest.
+
+Remaining before submission: Cloud Run deploy + live Firestore write (Phase 4 —
+the actual "deployed on GCP" Devpost requirement, and the largest remaining
+risk), UI Approve/Reject persistence, the DEGRADED demo path (needs a forced
+sub-agent failure to show), Phase 5 loop, video, Devpost draft, public repo push.
+
 <!-- Add a new dated section above this line each time we make a decision, ship a
      feature, or change status. Keep entries short: what changed, what's verified,
      what's still open. -->
