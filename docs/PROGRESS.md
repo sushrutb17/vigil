@@ -865,6 +865,63 @@ Two bugs in one day found the same way, and neither was visible from an exit
 code, a test, or a section count. Both needed someone to read the actual output
 and ask whether the words were true.
 
+## 2026-08-29 (Sat, cont'd 14) — Artifact regenerated and verified clean; closing out today's citation-safety arc
+
+Final step of today's deploy-and-verify arc: regenerated `artifacts/demo_run.json`
+— the file the deployed `vigil-ui` actually serves — carrying all three fixes
+made today, and verified it before committing rather than trusting the exit code
+(the lesson from every other bug found today).
+
+**What shipped today, in decision order:**
+
+1. First live Cloud Run deploy of the full stack (Gemini/ADK + Cloud Run +
+   Firestore), catching three bugs invisible from any exit code: gcloud
+   `--args` parsing, briefs never reaching Firestore, and Precedent/Risk output
+   the citation gate silently deleted 100% of the time (`d0b47f5`, `cb1f248`,
+   `f2fe88a`).
+2. Reading what `f2fe88a` actually produced in Firestore found the fix was only
+   half-landed: Risk was fixed, Precedent was still empty, but the agent had
+   *succeeded* — the gate was deleting a fully successful sub-agent's output
+   because it always keeps headings, so an emptied section is byte-identical to
+   one whose agent never ran. Fixed with `_backfill_empty_sections` plus a
+   decision to skip the Precedent call entirely when the cluster has no
+   candidates (the demo fixture always falls in this case — a cluster cannot be
+   its own precedent) (`08adc32`).
+3. Regenerating the artifact on the real 5k slice surfaced a worse bug:
+   `[ACN 1000001]`-`[ACN 1000005]` fabricated by the Risk agent — invented
+   placeholders that appear in none of the 38,655 real reports — and the gate
+   kept them, because it validated citation *shape*, never *provenance*. Fixed
+   by supplying the Risk agent real ACNs to cite and adding an `allowed_acns`
+   allow-list to `strip_uncited_claims` that removes invalid citations
+   surgically rather than deleting the whole claim, and treats members-plus-
+   supplied-precedent-candidates as the valid set, not members alone, since
+   Precedent legitimately cites outside the cluster (`eb632e0`).
+4. Along the way: the Makefile never loaded `.env`, so a forgotten
+   `source .env` failed inside ADK's first Analyst call rather than up front
+   (`15aa2e7`); and `run-live`/`artifact` looked like a two-step pipeline but
+   are actually the same complete live run with different output destinations
+   — chaining them silently doubles the live-call count for one snapshot
+   (`e8261ee`).
+
+**Final verification, `4dedd8d`:** ran `make artifact` alone (not chained),
+then checked every cluster's cited ACNs against the full source parquet — zero
+fabricated citations, all 4 escalated briefs fully sectioned (Hazard/Precedent/
+Risk Assessment/Recommended Brief all non-empty), no DEGRADED banners, no stray
+headings. This is the artifact now committed and ready for `vigil-ui` to serve
+once redeployed.
+
+**Test count across the day: 21 -> 23 -> 26**, all green, ruff clean throughout.
+Every new test added today was confirmed to fail against the pre-fix source
+before being trusted as a real guard, not just a passing assertion.
+
+**Remaining before demo/submission**, per `docs/HANDOFF.md`: redeploy `vigil-ui`
+to serve the new artifact; click Approve/Reject on the hosted URL and confirm
+Firestore receives them; the 629-member megacluster's brief is an 18,000-
+character wall of citations that will look broken in the UI; Cloud Scheduler
+trigger; DEGRADED demo path; Phase 5 self-improvement loop (zero code yet, and
+per explicit user directive it is NOT to be cut from scope); video; Devpost
+submission; public GitHub push (deliberately last).
+
 <!-- Add a new dated section above this line each time we make a decision, ship a
      feature, or change status. Keep entries short: what changed, what's verified,
      what's still open. -->
