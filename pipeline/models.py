@@ -60,6 +60,11 @@ class ClusterAssessment:
     risk: RiskScore
     member_acns: tuple[str, ...]
     facets: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    #: True when this cluster crossed the threshold on *this* run and the
+    #: escalation ledger had no prior alert covering its members. Kept separate
+    #: from the stored ``status`` string, whose "new" value confusingly means
+    #: "not escalated this run" and which the UI and tests already depend on.
+    newly_escalated: bool = False
 
 
 JsonDict = dict[str, Any]

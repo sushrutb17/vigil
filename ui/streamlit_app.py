@@ -54,6 +54,7 @@ def _cluster_payload(cluster: dict[str, Any]) -> dict[str, Any]:
         "name": cluster["name"],
         "risk": cluster["risk"],
         "escalated": cluster["escalated"],
+        "new_this_run": cluster["new_this_run"],
         "member_acns": list(cluster["members"]),
         "facets": cluster["facets"],
         "brief": str(cluster["brief"]),
@@ -71,6 +72,10 @@ def _load_clusters() -> tuple[list[dict[str, Any]], str]:
                 "name": entry["name"],
                 "risk": entry["risk"]["total"],
                 "escalated": entry["risk"]["escalated"],
+                # Artifacts written before this field existed are single fresh
+                # runs against an empty ledger, so every escalation in them is
+                # by construction new.
+                "new_this_run": entry.get("newly_escalated", entry["risk"]["escalated"]),
                 "members": tuple(entry["member_acns"]),
                 "facets": entry["facets"],
                 "brief": entry["brief"],
@@ -87,6 +92,7 @@ def _load_clusters() -> tuple[list[dict[str, Any]], str]:
             "name": assessment.name,
             "risk": assessment.risk.total,
             "escalated": assessment.risk.escalated,
+            "new_this_run": assessment.newly_escalated,
             "members": assessment.member_acns,
             "facets": assessment.facets,
             "brief": draft_brief(assessment),
@@ -101,7 +107,9 @@ def _sorted_choices(clusters: list[dict[str, Any]]) -> dict[str, dict[str, Any]]
     """Escalated clusters first, then by descending risk — an analyst's queue order."""
     ordered = sorted(clusters, key=lambda c: (not c["escalated"], -c["risk"]))
     return {
-        f"{'⚠ ' if c['escalated'] else ''}{c['name']} · risk {c['risk']:.2f}": c for c in ordered
+        f"{'⚠ ' if c['escalated'] else ''}{'🆕 ' if c['new_this_run'] else ''}"
+        f"{c['name']} · risk {c['risk']:.2f}": c
+        for c in ordered
     }
 
 
@@ -129,6 +137,13 @@ def main() -> None:
     left, right = st.columns([1, 1])
     with left:
         st.subheader(str(cluster["name"]))
+        if cluster["new_this_run"]:
+            # The signal an analyst actually wants: not "is this severe" (the
+            # risk score says that) but "is this severe AND something I have not
+            # already been alerted about". It comes from the escalation ledger's
+            # member-set overlap check, so a pattern that merely persists across
+            # weeks stays quiet instead of re-alerting every Monday.
+            st.success("🆕 NEW THIS RUN — not covered by any previous escalation")
         st.metric("Deterministic risk", f"{cluster['risk']:.2f}")
         st.write(
             "**Status:**",

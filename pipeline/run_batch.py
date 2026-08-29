@@ -8,7 +8,7 @@ import random
 import sys
 from collections import Counter
 from collections.abc import Callable, Sequence
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 
 from agents.critic import format_citations, strip_uncited_claims
@@ -86,9 +86,11 @@ def run_batch(
         risk = score_cluster(members, policy)
         assessment = assess_cluster(cluster.cluster_id, members, risk)
         already_escalated = store.previously_escalated(frozenset(cluster.member_acns))
-        status = "escalated" if risk.escalated and not already_escalated else "new"
-        if risk.escalated and not already_escalated:
+        newly_escalated = risk.escalated and not already_escalated
+        status = "escalated" if newly_escalated else "new"
+        if newly_escalated:
             store.record_escalation(frozenset(cluster.member_acns))
+        assessment = replace(assessment, newly_escalated=newly_escalated)
         store.put_cluster(
             cluster.cluster_id,
             {
