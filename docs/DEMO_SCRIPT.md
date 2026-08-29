@@ -7,7 +7,9 @@ Judging targets: problem + value prop stated, architecture explained, **unedited
 On screen: scrolling raw ASRS narratives (public NASA data) + caption: "NASA ASRS: 100,000+ reports/yr — each screened by two human analysts within 3 working days." Optional half-sentence of VO: "NASA's own program pays two analysts to read every single one."
 
 ## 0:35–1:05 — Architecture (30 seconds, diagram on screen)
-Ingest agents extract and dedupe → deterministic clustering (deliberately not an LLM) → an analyst agent names hazards and scores risk → above a frozen threshold, a coordinator fans out parallel agents → a critic strips any claim that doesn't cite a source report → **a human approves. The system never actions anything itself.**
+Deterministic ingest reads NASA's own coded fields → deterministic clustering, **no LLM in that stage at all** → an analyst agent names the hazard and writes the statement, while *code* — not the agent — computes the risk score → above a frozen threshold, a coordinator fans out three agents in parallel → a critic strips uncited claims, and then a deterministic gate runs again regardless → **a human approves. The system never actions anything itself.**
+
+*(Accuracy note for the VO: do not say "ingest agents extract and dedupe" — those stages were cut, ingest is plain code. Do not say the analyst scores risk; it doesn't. Both were in the old script and both contradict the diagram on screen.)*
 
 ## 1:05–2:45 — Live execution (the unedited core — one continuous take)
 1. Trigger Cloud Run batch job on "this quarter's intake" (terminal visible) — mention it normally fires weekly via Cloud Scheduler; today we trigger it by hand for the camera

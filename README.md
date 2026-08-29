@@ -29,7 +29,8 @@ It falls back to the bundled fixture if that file is absent.
 
 ```bash
 make download   # HF Parquet export; locks data/holdout/test.parquet read-only
-make run-real   # 5,000-report seeded slice, deterministic stages only
+make run-real     # 5,000-report seeded slice, deterministic stages only
+make eval-offline # clustering vs Events_Anomaly + Critic catch rate (no model calls)
 ```
 
 `make download` fetches only the Hugging Face Parquet export and makes the test
