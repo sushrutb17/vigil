@@ -44,7 +44,7 @@ every feature below has to satisfy), `DATA.md` / `EVAL.md` / `DEMO_SCRIPT.md` /
 | GCP project created | ✅ Done | |
 | APIs enabled (Vertex AI, Cloud Run Admin, Firestore) | ✅ Done | |
 | Budget alert ($50) | ⬜ Not Started | Billing → Budgets & alerts, console-only |
-| Firestore database instance created | ⬜ Not Started | API enabled ≠ database created; Native mode |
+| Firestore database instance created | ✅ Done | `(default)` DB in `vigil-hackathon` project, Standard edition, Native mode, empty (collections created lazily on first write by `FirestoreStore`) — verified via Cloud Console, not yet exercised by a live write |
 | Local git repo initialized, doc set committed | ✅ Done | Branch `main`, local commits only |
 | Repo pushed to public GitHub | ⬜ Not Started | **Deliberately last** — see PROGRESS.md 2026-08-28 entry |
 

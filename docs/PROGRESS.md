@@ -91,6 +91,19 @@ last):
 
 ---
 
+## 2026-08-29 (Sat) — Firestore database created (step 2 of priority order)
+
+Created the Firestore `(default)` database in the `vigil-hackathon` GCP project via
+Google Cloud Console (Standard edition, Native mode — not the newer Enterprise/MongoDB
+-compatible option, which `pipeline/store.py`'s `google-cloud-firestore` client can't
+talk to). Currently empty — no collections yet, which is expected: `FirestoreStore`
+creates `reports`, `clusters`, `agent_log`, and `escalations` lazily on first write.
+
+Still open from the priority list: confirm the $50 budget alert is set (step 1 — status
+unconfirmed, should verify in Billing before racking up spend), then steps 3-7 (real
+data download, live Gemini credentials, Cloud Run deploy, real-data run, public repo
+push).
+
 <!-- Add a new dated section above this line each time we make a decision, ship a
      feature, or change status. Keep entries short: what changed, what's verified,
      what's still open. -->
