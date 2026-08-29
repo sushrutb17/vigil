@@ -105,6 +105,33 @@ now done. Next up per the priority order: step 3, real data download (`make down
 in your own Mac terminal — needs network), then steps 4-7 (live Gemini credentials,
 Cloud Run deploy, real-data run, public repo push).
 
+## 2026-08-29 (Sat, cont'd) — Real data downloaded, holdout locked
+
+Ran `uv run python -m data.download` in the user's own terminal (real `.venv`, real
+network — this needed the Mac shell, not the Claude device session, which has no
+network access). Two attempts:
+
+1. First attempt: raw splits landed at `data/raw/default/{train,validation,test}/0000.parquet`
+   (49M/5.5M/6.1M) but `data/holdout/test.parquet` was missing afterward — the run
+   evidently stopped or errored somewhere after the HF snapshot download completed but
+   before (or during) the `lock_holdout()` copy+chmod step. Root cause not diagnosed
+   (no traceback captured from that run).
+2. Second attempt (re-run of the same command): completed cleanly, printed the
+   `test:`/`train:`/`validation:` path lines from `main()`, and this time
+   `data/holdout/test.parquet` exists (6.3M, matches the test split size) and is
+   chmod'd read-only. Confirmed via the device bridge's view of the mounted folder.
+
+This is a meaningful guardrail checkpoint (see CLAUDE.md guardrail #3 — "data/holdout/
+is sacred"): the holdout file is now actually locked, not just planned. `lock_holdout()`
+refuses to run again if the file already exists (`FileExistsError`), so this is a
+one-way step — don't delete `data/holdout/` to "fix" something without recognizing
+you'd be re-opening a file the eval design assumes is fixed forever.
+
+Next per the priority order: live Gemini credentials (Google AI Studio API key → local
+`.env`, confirm `gemini-3.7-flash` / `gemini-embedding-2` still resolve), then the EDA
+pass against the real data (Phase 2, blocked on nothing else now), then Cloud Run
+deploy, then the public GitHub push (deliberately last).
+
 <!-- Add a new dated section above this line each time we make a decision, ship a
      feature, or change status. Keep entries short: what changed, what's verified,
      what's still open. -->

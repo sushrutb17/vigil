@@ -71,7 +71,7 @@ every feature below has to satisfy), `DATA.md` / `EVAL.md` / `DEMO_SCRIPT.md` /
 
 | Feature | Status | Note |
 |---|---|---|
-| `data/download.py` (HF snapshot download, lock `data/holdout/`) | 🔶 Partial | Code written, never executed — needs network; run `make download` on your Mac, not through the Claude device session |
+| `data/download.py` (HF snapshot download, lock `data/holdout/`) | ✅ Done | Run 2026-08-29 in user's own terminal (real `.venv`, real network). `data/raw/default/{train,validation,test}/0000.parquet` present (49M/5.5M/6.1M). `data/holdout/test.parquet` locked (chmod 0o444) on this run — first run had downloaded raw splits but errored/stopped before the lock step; re-run completed it cleanly. |
 | Real-data EDA vs DATA.md quirks (ZZZ rate, `;` splitting, Report 2 frequency) | ⬜ Not Started | 🚫 Blocked by: data download |
 | `run_batch.py` support for a real dataset path | ⬜ Not Started | CLI currently only accepts `--demo`; no `--dataset` flag or loader wiring exists yet |
 | Demo slice finalized (fixed seed, e.g. 5k train reports) | ⬜ Not Started | 🚫 Blocked by: EDA |
