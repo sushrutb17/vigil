@@ -8,11 +8,27 @@ as the render engine.
 brag-plan.md          creative contract  — angle, tone, storyboard, every deviation + why
 composition-brief.md  build contract     — numbers, palette, prohibitions, swap procedure
 composition/          the HyperFrames project
-  index.html            orchestrator: 6 scene slots, 2 capture videos, 6 VO tracks
-  compositions/*.html   one sub-composition per scene
+  index.html            MASTER: 6 scene slots, 2 capture videos, 6 VO tracks
+  compositions/*.html   one sub-composition per scene — the actual content
+  scene-hosts/*.html    thin per-scene render hosts (mount one scene each)
   assets/capture/       ← REAL SCREEN CAPTURE GOES HERE (placeholders now)
   assets/vo/            ← REAL VOICEOVER GOES HERE (silent placeholders now)
+scenes/               per-scene MP4s — the editor-timeline deliverable
 ```
+
+## Two ways to finish it — pick one
+
+**A · Per-scene files, assembled in an editor** *(what you asked for)*. Each
+composed scene renders as its own MP4 with **no audio**. Drop them on a timeline,
+record voiceover over each, and slot your own capture and any extra scenes
+between them. Most flexible; you own the final assembly.
+
+**B · One master render.** `index.html` holds all six scenes and the VO tracks;
+swap the placeholder assets and render once. No editor needed.
+
+Both stay in sync automatically — the per-scene hosts in `scene-hosts/` only
+*mount* the same sub-compositions the master uses, so a content edit in
+`compositions/*.html` shows up in both. **Edit content only in `compositions/`.**
 
 ## Why it is not a 20-second brag video
 
@@ -108,6 +124,32 @@ composition/assets/vo/seg1.wav … seg6.wav
 cd composition
 npx hyperframes check                                  # must pass, 0 errors
 npx hyperframes snapshot --at 15,44,56,180,214,229     # eyeball — check cannot see overflow
+```
+
+**Route A — per-scene files** (already rendered into `scenes/`; re-run after edits):
+
+```bash
+npx hyperframes render -c scene-hosts/s1.html --quality high --output ../scenes/s1-friction.mp4
+npx hyperframes render -c scene-hosts/s2.html --quality high --output ../scenes/s2-architecture.mp4
+npx hyperframes render -c scene-hosts/s5.html --quality high --output ../scenes/s5-numbers.mp4
+npx hyperframes render -c scene-hosts/s6.html --quality high --output ../scenes/s6-close.mp4
+```
+
+Scene 4's callouts render separately **with an alpha channel**, so they lay over
+your terminal capture instead of being baked in — do this *after* recording, once
+the placeholder is deleted and the callouts are retimed to the real footage
+(`scene-hosts/s4-overlay.html` documents both steps):
+
+```bash
+npx hyperframes render -c scene-hosts/s4-overlay.html --format mov \
+  --quality high --output ../scenes/s4-callouts.mov
+```
+
+Scene 3 needs nothing rendered — it is your capture, played untouched.
+
+**Route B — one master render:**
+
+```bash
 npx hyperframes render --quality high --output ../vigil-demo.mp4
 ```
 

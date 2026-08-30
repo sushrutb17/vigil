@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en" data-resolution="landscape">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>VIGIL — scene 4 callouts (transparent overlay)</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      /* NO background anywhere — transparency is the point of this host. */
+      html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: transparent; }
+      body { font-family: "Inter", sans-serif; color: #e6edf3; }
+      #root { position: relative; width: 1920px; height: 1080px; overflow: hidden; }
+      [data-composition-id="main"] > div[data-composition-src] { position: absolute; inset: 0; }
+    </style>
+  </head>
+  <body>
+    <!--
+      PER-SCENE RENDER HOST — scene 4 CALLOUTS ONLY, as a transparent overlay.
+
+      Renders the three callouts with an alpha channel so you can lay them over
+      your own terminal capture in the editor, instead of baking them in. That
+      keeps the footage itself untouched and lets you slide the callouts around
+      until they line up with what the terminal actually does.
+
+      RENDER IT AFTER YOU RECORD, not before — two things must happen first:
+        1. Delete the #s4-ph placeholder block in ../compositions/s4-failure.html
+           (it has an opaque background and would fill the whole overlay).
+        2. Retime the three callouts to the moments they actually occur in your
+           recording. The current times are guesses, not measurements.
+
+      Then, MOV keeps the alpha channel (MP4 does not):
+
+        npx hyperframes render -c scene-hosts/s4-overlay.html --format mov \
+          --quality high --output ../scenes/s4-callouts.mov
+
+      Set data-duration below to your real clip length before rendering.
+    -->
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="20"
+      data-width="1920"
+      data-height="1080"
+      data-fps="30"
+    >
+      <div
+        id="el-s4"
+        data-composition-id="s4-failure"
+        data-composition-src="compositions/s4-failure.html"
+        data-start="0"
+        data-duration="20"
+        data-track-index="1"
+      ></div>
+    </div>
+    <script>
+      window.__timelines = window.__timelines || {};
+      window.__timelines["main"] = gsap.timeline({ paused: true });
+    </script>
+  </body>
+</html>
