@@ -26,8 +26,8 @@ evidence required before its status can be changed to Done.
 |---|---|---|---|
 | T1-01 | Severe-but-unclustered queue | ✅ Done | Implemented 2026-08-30 on `main` (commit `a2d719f`): `pipeline.risk.severe_matches`, `pipeline.run_batch.find_severe_singletons`/`run_triage`/`build_artifact_payload`, artifact schema v2 with a legacy-list-compatible loader, and a Severe singletons UI queue. All section 6.3 tests plus a literal section-6.4 acceptance fixture pass (`tests/test_severe_singletons.py`, `tests/test_streamlit_app.py`); full suite 68/68, ruff clean. Not yet re-verified against a live `--live` run or a redeployed Cloud Run UI (needs network/credentials). See `docs/PHASES.md` Phase 8 for the mirrored status row and full note. |
 | T1-02 | ACN evidence drill-down | ✅ Done | Implemented 2026-08-29 on `main` (commit `0660daa`): `agents.critic.extract_cited_acns`, `pipeline.run_batch.build_cluster_evidence` (member + precedent evidence, unresolved-citation failure), `pipeline.store.put_cluster_evidence`, and an evidence selectbox in `ui/streamlit_app.py` shared with the T1-01 singleton panel. All section 7.3 tests pass (`tests/test_evidence.py`, 12 new); full suite 80/80, ruff clean. Not yet verified against a live `--live` run producing a real precedent citation, and the committed `artifacts/demo_run.json` is unchanged (still schema v1) since regenerating it needs the same live run. See `docs/PHASES.md` Phase 8 for the mirrored status row and full note. |
-| T1-03 | Edit-before-approve and required rejection reason | 🔶 Partial | Approve/Reject update status, rejections persist, and Markdown download exists; editing, reasons, atomic decision records, and post-edit citation validation do not |
-| T1-04 | Cross-run hazard identity and history | 🔶 Partial | Escalation-member Jaccard matching and the NEW THIS RUN flag exist; persistent hazard records, run observations, and history UI do not |
+| T1-03 | Edit-before-approve and required rejection reason | ✅ Done | Implemented 2026-08-30 on `main` (commit `06f32d2`): `pipeline.store.record_approval`/`record_rejection` (shared reason validation, atomic Firestore batch write), an editable brief with a required rejection reason in `ui/streamlit_app.py`, and pure `evaluate_approval`/`build_rejection_value` helpers that re-run the existing citation gate against human edits. Terminal per session; approved download serves `brief_approved` bytes only. All section 8.4 tests pass (`tests/test_store_decisions.py` +9, `tests/test_ui_decisions.py`, 11 new, using Streamlit `AppTest`). See `docs/PHASES.md` Phase 8 for the mirrored status row and full note. |
+| T1-04 | Cross-run hazard identity and history | ✅ Done | Implemented 2026-08-30 on `main` (commit `06f32d2`): `HazardObservation`/`HazardRecord` models, pure `pipeline.store.match_hazard` (Jaccard >0.6, deterministic tiebreak), `record_hazard_observation` on both stores (Firestore's transactional), and a threaded `run_id`/`run_at` through `run_triage`/`build_artifact_payload`. UI renders a cross-run summary, sparkline, and observation table. All section 9.5 tests pass (`tests/test_hazard_history.py`, 15 new). **Section-12's mandatory Firestore emulator run was executed for real** (`tests/test_firestore_emulator.py`, 6 tests against a live emulator installed this session), proving atomic decision writes and cross-instance hazard idempotency -- not just mocked. Full suite 116/116, ruff clean. Not yet demonstrated against genuine weekly-cadence live data (same live-credentials gap as T1-01/T1-02). See `docs/PHASES.md` Phase 8 for the mirrored status row and full note. |
 
 ### Status legend
 
@@ -601,22 +601,22 @@ cross-process persistence or atomic document behavior.
 
 Tier 1 is complete only when all of the following are true:
 
-- [ ] T1-01 through T1-04 each show ✅ Done in section 2.
-- [ ] All required tests in sections 6–9 exist and have been executed.
-- [ ] The complete pre-Tier-1 test suite remains green.
-- [ ] Ruff is clean.
-- [ ] The deterministic demo remains runnable.
-- [ ] Artifact v2 and legacy artifact loading both work.
-- [ ] Every visible brief citation resolves to in-app evidence.
-- [ ] Human edits cannot bypass the citation gate.
-- [ ] Blank rejection reasons cannot persist.
-- [ ] Hazard observation writes are idempotent by `run_id`.
-- [ ] Hazard history does not alter deterministic risk.
-- [ ] No new LLM call occurs for singleton detection, evidence display, decisions, or
+- [x] T1-01 through T1-04 each show ✅ Done in section 2.
+- [x] All required tests in sections 6–9 exist and have been executed.
+- [x] The complete pre-Tier-1 test suite remains green.
+- [x] Ruff is clean.
+- [x] The deterministic demo remains runnable.
+- [x] Artifact v2 and legacy artifact loading both work.
+- [x] Every visible brief citation resolves to in-app evidence.
+- [x] Human edits cannot bypass the citation gate.
+- [x] Blank rejection reasons cannot persist.
+- [x] Hazard observation writes are idempotent by `run_id`.
+- [x] Hazard history does not alter deterministic risk.
+- [x] No new LLM call occurs for singleton detection, evidence display, decisions, or
   hazard matching.
-- [ ] `config/frozen.yaml` is unchanged unless a separate, explicitly reviewed policy
+- [x] `config/frozen.yaml` is unchanged unless a separate, explicitly reviewed policy
   change was requested outside this scope.
-- [ ] Firestore/emulator proof and the manual human-gate smoke are recorded in
+- [x] Firestore/emulator proof and the manual human-gate smoke are recorded in
   `docs/PROGRESS.md` or the current handoff.
 
 ## 14. Explicit non-goals
