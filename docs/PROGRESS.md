@@ -1304,6 +1304,89 @@ regenerated artifact -- that's the user's own action per standing preference, no
 gap in the work itself. Tier 1 is now Done with every acceptance criterion backed by
 a real run, not a synthetic stand-in.
 
+## 2026-08-30 (Sun) — Shipped to production: deployed, pushed public, and four docs that had drifted false
+
+**Context:** Tier 1 was complete and verified locally, but nothing had shipped. The
+deployed revision predated all of it, the repo had never been pushed, and a
+second agent's status review needed cross-checking. Everything below came out of
+verifying claims by *running* them rather than reading them.
+
+**The status review was mostly right and mis-ordered.** It bucketed work by
+priority label (P0/P1/P2), which hid the actual constraint: three items filed as
+"release-quality polish" were hard blockers on P0 work. `DEMO_SCRIPT.md` told the
+presenter not to show clustering and Critic metrics because they "were never run"
+-- they had been run, and `eval/runs/20260829T192117Z-offline.json` holds a Critic
+catch rate of 1.000 with legitimate-claim retention 1.000. The script was
+suppressing the strongest number in the project. Rewrote `PROJECT_STATUS.md` as a
+dependency graph instead of a priority list. One item the review listed as open
+(how to present the 0.837 noise fraction) was already decided and written up in
+both README and the Devpost draft; reopening a settled honesty decision hours
+before a deadline is the risk, not leaving it.
+
+**The nested `vigil-docs` worktree leaked through three exclusion mechanisms at
+once.** `.gitignore`, `.gcloudignore` and `.dockerignore` are read by three
+different tools, and all three predate the worktree, so a directory created later
+is invisible to all of them simultaneously -- the repo's own comments show the
+author knew they had to stay in sync, but sync discipline can't cover a file added
+afterward. Two consequences, only one of which was on the review's list: `git add .`
+does not refuse an embedded repo, it *warns and stages a gitlink*, so the public
+repo would have carried a dangling 581MB submodule pointer; and `gcloud run deploy
+--source .` would have uploaded that 581MB to Cloud Build and `COPY . .`-ed it into
+the image. Moved the worktree to the path git already had registered (which also
+un-pruned it) and added the entry to all three files.
+
+**README's least-privilege claim had silently become false.** It stated `vigil-ui`
+holds "no IAM roles at all ... no Firestore". True when written; untrue since T1-03
+started persisting analyst decisions, which required `roles/datastore.user`. A
+false *security* claim in a judged document, about to be published. The honest
+version is still a good story -- no `secretAccessor`, so the public surface cannot
+reach the Gemini key or make a model call -- it just had to be the real one.
+
+**The one command the README dares a judge to run did not work.** Under "you can
+watch that work instead of taking our word for it", it printed
+`python -m pipeline.run_batch --demo --live --fail-agent risk`. There is no bare
+`python` on PATH here; the project runs through uv. Worse, the `GOOGLE_API_KEY`
+guard lived only in the Makefile's `require-key` target, so `make run-live` and
+`make artifact` failed politely while the directly-invoked form -- the advertised
+one -- crashed inside ADK's client construction across three worker threads and
+buried "No API key was provided" in ~700 lines of traceback. Fixed the command
+form in README/DEVPOST/PHASES and moved the guard into `run_batch.main()`, which
+covers every invocation path rather than just the make ones. Verified: 700 lines
+before, 4 after. **The general lesson**: docs that record what was run on a day
+when the venv happened to be active quietly become instructions that don't work in
+a fresh shell. Left HANDOFF/PROGRESS untouched -- append-only history of what was
+actually typed should not be rewritten to look correct.
+
+**Cold start makes the deployed UI look broken.** First verification screenshot of
+the new revision showed an empty "Investigator draft" column and Streamlit's Stop
+button still visible. Not a bug: `--min-instances 0` means the first request after
+idle boots a container, and Streamlit paints top-to-bottom over a websocket, so the
+header lands while the right column is still executing. Warm, the page completes in
+3.8s. Keeping min-instances at 0 is correct (it's what lets the service stay up all
+month for nearly nothing), but the URL must be loaded once before recording --
+10 seconds of blank column on camera reads as a broken app, not a cost decision.
+
+**Shipped.** Redeployed to `vigil-ui-00004-vsw`, verified from a clean
+unauthenticated Chromium context (which doubles as the logged-out-judge access
+check rather than a signed-in session that proves less): 23 clusters / 4 escalated
+/ 1,328 severe singletons / 5,000 reports triaged, all four Tier 1 features
+rendering, zero console errors. Pushed to **https://github.com/sushrutb17/vigil**,
+then audited the result against a fresh clone rather than trusting `.gitignore`:
+81 files, no credentials, no worktree, no SDK, no raw or holdout data, with the
+2.5MB artifact, both diagrams and both eval ledgers present. Cloned it clean and
+ran `make demo` end to end with no `.env` and no `data/raw` -- the path a judge
+actually takes.
+
+**Failure-tolerance clip verified before recording it:** 11s wall, exit 0, brief
+carries `DEGRADED`, `## Risk Assessment` fell back to its cited deterministic line,
+`## Recommended Brief` stayed model-authored. Two things only running it surfaces:
+the key must be exported in the *same shell* as the run, and the command prints
+nothing for those 11 seconds -- silent, not hung, and 11s of dead terminal is
+material against a four-minute budget.
+
+**Still open:** the video (record, upload public), the Devpost form, and gallery
+confirmation. No engineering remains on the critical path.
+
 <!-- Add a new dated section above this line each time we make a decision, ship a
      feature, or change status. Keep entries short: what changed, what's verified,
      what's still open. -->

@@ -18,6 +18,59 @@ Entry format:
 
 ---
 
+## 2026-08-30 ~13:00 ET — Claude Code (shipped: deployed, pushed public, docs de-drifted)
+- Last commit: `b7b388c` Verify the failure-tolerance demo run end to end before recording it
+- Finished:
+  - **Cloud Run redeployed and verified.** Revision `vigil-ui-00004-vsw`, 100%
+    traffic. Verified from a clean unauthenticated Chromium context (this is
+    also the logged-out-judge access check): **23 clusters / 4 escalated /
+    1,328 severe singletons / 5,000 reports triaged**, all four Tier 1 features
+    rendering, zero console errors. Canonical URL is the project-number form
+    `https://vigil-ui-715230861973.us-central1.run.app` — the hash form
+    `vigil-ui-6bbjbbpdca-uc.a.run.app` also 200s; do not mix them across
+    README / Devpost / video.
+  - **Repo is public: https://github.com/sushrutb17/vigil.** Audited against a
+    fresh clone rather than trusting `.gitignore`: 81 files, no credentials, no
+    worktree, no SDK, no raw/holdout data; artifact + both diagrams + both eval
+    ledgers present. Cloned it clean and ran `make demo` end to end with no
+    `.env` and no `data/raw`.
+  - **Four docs corrected that had drifted false** — see PROGRESS.md 2026-08-30
+    for the reasoning. README's least-privilege claim (said the UI holds no IAM
+    roles; T1-03 gave it `roles/datastore.user`), DEMO_SCRIPT's "metrics were
+    never run" instruction (they were — Critic catch rate 1.000, retention
+    1.000), PHASES' sparkline/816-reports/URL rows, and the failure-tolerance
+    command that could not execute as printed.
+  - **`--live` now guards on `GOOGLE_API_KEY` inside `run_batch.main()`**, not
+    just in the Makefile. 700-line ADK traceback → 4-line argparse error.
+  - **Failure-tolerance clip verified**: 11s, exit 0, `DEGRADED` present,
+    Risk section fell back to its cited deterministic line, Recommended Brief
+    stayed model-authored. Ready to screen-record.
+  - `PROJECT_STATUS.md` rewritten as a dependency graph (was a priority list)
+    and **gitignored** — it is a temporary submission burndown, not a second
+    status board. `docs/PHASES.md` remains the source of truth. Delete it after
+    submitting.
+- Next action: **record the video.** Nothing engineering-side blocks it. Before
+  the take: (1) load the hosted URL once — cold start puts ~10s of blank draft
+  column on camera; (2) `set -a; source .env; set +a` in the recording shell —
+  a fresh terminal drops the key, which cost two false starts today; (3) clear
+  tabs/bookmarks/desktop/notifications (compliance item). Then follow
+  `docs/DEMO_SCRIPT.md`, which is now correct about which numbers to show.
+- Watch out:
+  - **Stage One is pass/fail.** All three mandatory technologies must be
+    *visibly* true in the video, not merely true in the repo. The GCP console
+    segment must include ~3s of the Cloud Scheduler config — that is the
+    background-workflow evidence the Taskmaster category is scored on.
+  - The Devpost form needs `docs/architecture.png` alongside the three URLs.
+    `docs/DEVPOST_DRAFT.md` is paste-ready but has **no placeholder markers**
+    for repo/hosted/video URLs — they are form fields and easy to skip.
+  - Do not reopen the 0.837-noise-fraction framing. It is already written up
+    honestly in README and the Devpost draft; relitigating it on deadline day
+    is the risk, not leaving it.
+  - `vigil-docs` now lives at `/Users/sush/vigil-docs`, outside the repo. It is
+    a git worktree on `docs-collateral` (holds the Tier 1 spec). Do not move it
+    back into the repo root: nothing there excluded it, and `git add .` stages
+    an embedded-repo gitlink rather than refusing.
+
 ## 2026-08-30 ~01:00 ET — Claude Code (closed every remaining live-verification gap)
 - Last commit: `c4334e8` Regenerate artifacts/demo_run.json from a real --live run
 - Finished (asked directly to "get that sorted" after the previous handoff flagged
