@@ -21,11 +21,25 @@ not in the JSON). Nothing here is rounded in our favour.
 
 # Post 1 — build story (dev.to / Medium)
 
-**Suggested title:** *Three things my AI safety system got wrong, and why I shipped the numbers anyway*
+**Title — pick one.** Both work; they trade reach against first impression.
+
+- *Three things my AI safety system got wrong, and why I shipped the numbers
+  anyway* — **failure-led.** Strongest hook for dev.to specifically, where the
+  audience clicked in for exactly this. Highest expected reach.
+- *I built an aviation hazard-triage system in 11 days — here's what it returns,
+  and the three numbers I'd rather not have published* — **value-led with the
+  hook retained.** Better if the post may be read by someone evaluating the
+  project rather than reading for craft. Slightly lower reach.
 
 **Suggested subtitle:** *Building VIGIL: an aviation hazard triage pipeline on Gemini, ADK and Cloud Run — where the interesting part was the failures.*
 
 **Tags:** `ai`, `googlecloud`, `python`, `machinelearning`
+
+> Note on framing: this post is deliberately failure-led and **Post 2 is
+> deliberately not.** A dev.to reader chose a technical article and that audience
+> rewards a post-mortem; a LinkedIn reader is scrolling past and sees two lines
+> before "see more". Same project, different job. Either post read in the other's
+> venue would land badly.
 
 ---
 
@@ -44,9 +58,17 @@ patterns, score each pattern against a frozen risk policy, and for the severe
 ones, fan out parallel agents to draft a source-cited investigator brief. A human
 approves every output. The system never sends, files, or actions anything.
 
-The build went fine. What I want to write about is the three things that went
-wrong, because they were more instructive than anything that worked — and because
-I decided to put all three in the submission rather than quietly fix the numbers.
+Pointed at 5,000 real ASRS reports, one pass returns 23 named hazard patterns, 4
+of them severe enough to escalate with a full investigator brief, and 1,328
+severe reports that matched no pattern and are surfaced individually rather than
+dropped. Every claim in every brief cites the report it came from, and clicking a
+citation opens that report's narrative. Hazards are matched across weekly runs,
+so one that is growing looks different from one that is stable. It works, it is
+deployed, and you can open it.
+
+What I actually want to write about is the three things that went wrong, because
+they were more instructive than anything that worked — and because I put all
+three in the submission rather than quietly fixing the numbers first.
 
 ## 1. My citation gate was checking that claims *looked* sourced
 
@@ -217,37 +239,50 @@ published.
 
 > Paste as-is. Attach `docs/architecture.png`, or a screenshot of the live UI
 > showing the hazard queue.
+>
+> **Value-led on purpose.** LinkedIn shows ~2 lines before "see more", and a
+> mixed audience did not opt into a post-mortem. What it does and what it
+> returns goes first; the honesty is one line near the end, where it reads as a
+> trust signal rather than as a disclaimer. The failure-led framing is kept for
+> Post 1, where a technical audience clicked in expecting exactly that.
 
-I spent 11 days building an AI system for aviation safety triage, and the most
-useful thing I can tell you about it is what it got wrong.
+A safety report that matters looks exactly like one that doesn't. That is the
+whole problem.
 
-VIGIL ingests public NASA ASRS safety reports, clusters them into emerging hazard
-patterns, and drafts source-cited investigator briefs for the severe ones. A human
-approves everything. It never sends or files anything itself.
+NASA's Aviation Safety Reporting System takes in more than 100,000 confidential
+reports a year, and every single one is read by two expert analysts within three
+working days. Most industries with the same intake problem — rail, medical
+devices, energy — don't have that. Reports pile up, each one looks minor, and the
+pattern across forty of them surfaces months later in a quarterly review. That
+gap is a risk window.
 
-Three failures I found — and shipped, rather than quietly fixed:
+I spent 11 days building VIGIL to close it.
 
-→ My citation gate was validating that claims *looked* sourced, not that they were.
-A model invented five report IDs that exist in none of the 38,655 real reports, and
-the gate kept them. A fabricated citation is worse than a missing one: the missing
-one gets stripped, the fabricated one survives carrying false authority.
+Point it at 5,000 real NASA safety reports, and one pass returns:
 
-→ My hand-written extractor prompt scored 0.0056 macro-F1 against a
-majority-class baseline's 0.0515 — nine times worse than a heuristic with no model
-in it. The self-improvement loop found the reason I'd missed and took it to 0.42,
-and the gain held on a holdout the loop isn't allowed to read.
+→ 23 emerging hazard patterns, named and risk-scored
+→ 4 severe enough to escalate, each with an investigator brief in which every
+   claim cites the specific report it came from — click any citation and read the
+   original narrative
+→ 1,328 severe reports that matched no pattern at all, surfaced individually
+   instead of being silently dropped
+→ recurrence tracking across weekly runs, so a hazard that is growing looks
+   different from one that is stable
 
-→ 84% of reports end up unclustered, against a 0.40 tripwire I set myself. I
-didn't tune the parameters until it passed. Tuning until the alarm stops ringing
-isn't passing the test, it's removing it. The number is in the submission.
+Work that takes an analyst weeks, in minutes.
 
-The thesis: every other demo shows what the agents can do. This one's headline
-feature is what they're structurally forbidden from doing — no LLM anywhere near
-the clustering stage, risk thresholds no agent can rewrite, a locked holdout, and
-a citation gate that has no exception even for the human reviewer.
+The part I would care about most if I were the analyst: **it cannot act.** VIGIL
+drafts and recommends — a human approves everything, and there is no override.
+The risk thresholds live in a file no agent can write to. No language model goes
+anywhere near the clustering stage. And every claim is stripped unless it cites a
+real report, including claims a human adds while editing the draft.
 
-Built on Gemini, Google ADK, Cloud Run and Firestore. Repo and eval ledgers are
-public, so every number above can be checked against the JSON that produced it.
+Restraint as a mechanism, not a promise in a README.
+
+Built solo on Gemini, Google ADK, Cloud Run and Firestore, on public NASA data.
+The repo and the evaluation ledgers are both public — including the metrics where
+it underperforms, because a safety tool that only publishes its good numbers is
+not one you should trust.
 
 Live: https://vigil-ui-715230861973.us-central1.run.app
 Code: https://github.com/sushrutb17/vigil
