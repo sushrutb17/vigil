@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+  <body>
+    <!--
+      SCENE 6 — Close — 34s (3:18–3:52)
+      VO: docs/DEMO_SCRIPT.md § 3:20–4:00.
+
+      `polished` outro discipline: product name, tagline, silence. The five
+      prohibitions carry the diagram's own colours so the argument lands visually
+      as the same one scene 2 made — green is what is allowed to think, red is what
+      cannot be moved.
+
+      URLs must match docs/VIDEO_RUNBOOK.md exactly. The canonical hosted URL is the
+      project-number form; do NOT mix it with the hash form across README/Devpost/video.
+    -->
+    <template>
+      <div
+        data-composition-id="s6-close"
+        data-width="1920"
+        data-height="1080"
+        data-duration="34"
+        data-layout-allow-overflow="true"
+        style="position: absolute; inset: 0; overflow: hidden"
+      >
+        <style>
+          [data-composition-id="s6-close"] {
+            --bg: #0d1117;
+            --text: #e6edf3;
+            --dim: #8b949e;
+            --green: #2ea043;
+            --red: #f85149;
+            font-family: "Inter", sans-serif;
+          }
+          [data-composition-id="s6-close"] .s6-fill {
+            position: absolute;
+            inset: 0;
+            background: var(--bg);
+          }
+          [data-composition-id="s6-close"] .stage {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            padding: 0 200px;
+          }
+          [data-composition-id="s6-close"] #s6-thesis {
+            font-size: 74px;
+            font-weight: 600;
+            line-height: 1.24;
+            letter-spacing: -0.022em;
+            text-align: center;
+            max-width: 1460px;
+            color: var(--text);
+          }
+          [data-composition-id="s6-close"] #s6-thesis b {
+            color: var(--red);
+            font-weight: 600;
+          }
+
+          [data-composition-id="s6-close"] #s6-list {
+            position: absolute;
+            left: 300px;
+            top: 196px;
+            width: 1320px;
+          }
+          [data-composition-id="s6-close"] #s6-list .hd {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 21px;
+            letter-spacing: 0.09em;
+            color: var(--dim);
+            margin-bottom: 34px;
+          }
+          [data-composition-id="s6-close"] .pro {
+            display: flex;
+            align-items: flex-start;
+            gap: 22px;
+            padding: 14px 0;
+          }
+          [data-composition-id="s6-close"] .pro .bar {
+            width: 4px;
+            height: 44px;
+            border-radius: 2px;
+            flex: none;
+            margin-top: 3px;
+          }
+          [data-composition-id="s6-close"] .pro .tx {
+            font-size: 32px;
+            line-height: 1.32;
+            color: var(--text);
+          }
+          [data-composition-id="s6-close"] .pro .tx span {
+            color: var(--dim);
+          }
+
+          [data-composition-id="s6-close"] #s6-stack {
+            position: absolute;
+            left: 300px;
+            top: 872px;
+            width: 1320px;
+            font-size: 30px;
+            line-height: 1.55;
+            color: var(--dim);
+          }
+          [data-composition-id="s6-close"] #s6-stack b {
+            color: var(--text);
+            font-weight: 500;
+          }
+
+          [data-composition-id="s6-close"] #s6-end {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 26px;
+          }
+          [data-composition-id="s6-close"] #s6-end .mark {
+            font-size: 124px;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            color: var(--text);
+          }
+          [data-composition-id="s6-close"] #s6-end .tag {
+            font-size: 29px;
+            color: var(--dim);
+            letter-spacing: 0.01em;
+          }
+          [data-composition-id="s6-close"] #s6-end .urls {
+            margin-top: 26px;
+            font-family: "JetBrains Mono", monospace;
+            font-size: 25px;
+            line-height: 1.85;
+            color: var(--dim);
+            text-align: center;
+          }
+          [data-composition-id="s6-close"] #s6-end .urls b {
+            color: var(--text);
+            font-weight: 400;
+          }
+        </style>
+
+        <div class="s6-fill"></div>
+
+        <!-- Beat 1 — the thesis, alone. -->
+        <div class="stage">
+          <div id="s6-thesis">
+            The twist isn't what these agents can do. <b>It's what they're structurally
+            forbidden from doing.</b>
+          </div>
+        </div>
+
+        <!-- Beat 2 — the five prohibitions, in the diagram's colours. -->
+        <div id="s6-list">
+          <div class="hd">RESTRAINT AS A MECHANISM, NOT A DISCLAIMER</div>
+          <div class="pro" id="s6-p1">
+            <div class="bar" style="background: var(--green)"></div>
+            <div class="tx">No LLM call can reach the clustering stage. <span>Embeddings plus seeded HDBSCAN — a test asserts the module holds no model client at all.</span></div>
+          </div>
+          <div class="pro" id="s6-p2">
+            <div class="bar" style="background: var(--red)"></div>
+            <div class="tx">The risk thresholds are frozen. <span>A safety system must not quietly retune its own severity bar.</span></div>
+          </div>
+          <div class="pro" id="s6-p3">
+            <div class="bar" style="background: var(--red)"></div>
+            <div class="tx">The holdout is locked. <span>Read by exactly one module, consulted only after the candidate is already fixed.</span></div>
+          </div>
+          <div class="pro" id="s6-p4">
+            <div class="bar" style="background: var(--red)"></div>
+            <div class="tx">The citation gate has no exception for a human. <span>A reviewer's own edits are gated too.</span></div>
+          </div>
+          <div class="pro" id="s6-p5">
+            <div class="bar" style="background: var(--red)"></div>
+            <div class="tx">The human gate is terminal. <span>There is no auto-approve flag, and adding one is a prohibited change in the repo's own guardrails.</span></div>
+          </div>
+        </div>
+
+        <div id="s6-stack">
+          Built solo in eleven days on <b>Gemini</b>, the <b>Google Agent Development Kit</b>,
+          <b>Cloud Run</b> and <b>Firestore</b>, on public NASA data. The pattern generalises to
+          every safety-critical intake queue with the same shape — rail, medical devices, energy.
+        </div>
+
+        <!-- Beat 4 — the end card. -->
+        <div id="s6-end">
+          <div class="mark">VIGIL</div>
+          <div class="tag">A report backlog becomes a ranked hazard list with an evidence-cited brief. Hours, not months.</div>
+          <div class="urls">
+            <b>vigil-ui-715230861973.us-central1.run.app</b>
+            <br />
+            <b>github.com/sushrutb17/vigil</b>
+          </div>
+        </div>
+
+        <script>
+          window.__timelines = window.__timelines || {};
+          const s6 = gsap.timeline({ paused: true });
+
+          const all = [
+            "#s6-thesis", "#s6-list", "#s6-p1", "#s6-p2", "#s6-p3", "#s6-p4", "#s6-p5",
+            "#s6-stack", "#s6-end",
+          ];
+          all.forEach((n) => s6.set(n, { autoAlpha: 0 }, 0));
+
+          // ---- Beat 1 — thesis, held alone. 0.6s -> 8.4s
+          s6.fromTo("#s6-thesis", { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, duration: 1.0, ease: "power3.out" }, 0.6);
+          s6.to("#s6-thesis", { autoAlpha: 0, y: -16, duration: 0.6, ease: "power2.in" }, 7.8);
+
+          // ---- Beat 2 — the prohibitions. Each holds its reading floor (~1.6s for a
+          // sentence of this length), so they arrive 1.7s apart, not on every beat.
+          s6.fromTo("#s6-list", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4 }, 8.8);
+          const pro = (sel, at) =>
+            s6.fromTo(sel, { autoAlpha: 0, x: -20 }, { autoAlpha: 1, x: 0, duration: 0.5, ease: "power3.out" }, at);
+          pro("#s6-p1", 9.2);
+          pro("#s6-p2", 10.9);
+          pro("#s6-p3", 12.6);
+          pro("#s6-p4", 14.3);
+          pro("#s6-p5", 16.0);
+
+          // ---- Beat 3 — the stack, under the settled list.
+          s6.fromTo("#s6-stack", { autoAlpha: 0, y: 16 }, { autoAlpha: 1, y: 0, duration: 0.6, ease: "power3.out" }, 18.8);
+
+          // Whole argument holds together before the end card.
+          s6.to(["#s6-list", "#s6-stack"], { autoAlpha: 0, duration: 0.7, ease: "power2.in" }, 24.4);
+
+          // ---- Beat 4 — end card. Lands and holds to black. Silence.
+          s6.fromTo("#s6-end", { autoAlpha: 0, y: 20 }, { autoAlpha: 1, y: 0, duration: 0.9, ease: "power3.out" }, 25.4);
+
+          window.__timelines["s6-close"] = s6;
+        </script>
+      </div>
+    </template>
+  </body>
+</html>

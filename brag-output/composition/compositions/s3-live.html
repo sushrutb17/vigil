@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <body>
+    <!--
+      SCENE 3 — Live execution + GCP proof — 85s (0:58–2:23)
+      THE STAGE ONE PASS/FAIL SEGMENT. Real capture, unbroken, unedited.
+      VO: docs/DEMO_SCRIPT.md § 1:00–2:25.
+
+      THIS OVERLAY IS DELIBERATELY EMPTY once the footage lands.
+      Nothing may be drawn over the unedited proof segment — no callouts, no
+      lower-thirds, no SFX, no cuts, no speed ramps. Retakes are fine; edits
+      within the take are not. The only content below is the swap-me placeholder.
+
+      TO SWAP IN REAL FOOTAGE:
+        1. Record per docs/VIDEO_RUNBOOK.md (pre-flight: warm the hosted URL,
+           `set -a; source .env; set +a`, clear screen/notifications).
+        2. Overwrite assets/capture/seg3-live.mp4 with the recording.
+        3. Delete the #s3-ph block below and its two timeline lines.
+        4. Set the host slot + <video> + <audio> data-duration in index.html to the
+           real clip length, and shift every later data-start by the delta.
+    -->
+    <template>
+      <div
+        data-composition-id="s3-live"
+        data-width="1920"
+        data-height="1080"
+        data-duration="85"
+        style="position: absolute; inset: 0; overflow: hidden; pointer-events: none"
+      >
+        <style>
+          [data-composition-id="s3-live"] #s3-ph {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            font-family: "Inter", sans-serif;
+            color: #e6edf3;
+          }
+          [data-composition-id="s3-live"] #s3-ph .box {
+            width: 1180px;
+            border: 2px solid #f85149;
+            border-radius: 16px;
+            background: rgba(45, 15, 15, 0.92);
+            padding: 44px 56px;
+          }
+          [data-composition-id="s3-live"] #s3-ph .k {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 20px;
+            letter-spacing: 0.1em;
+            color: #f85149;
+          }
+          [data-composition-id="s3-live"] #s3-ph h2 {
+            font-size: 46px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            margin: 14px 0 8px;
+          }
+          [data-composition-id="s3-live"] #s3-ph p {
+            font-size: 23px;
+            color: #8b949e;
+            line-height: 1.5;
+            margin-bottom: 24px;
+          }
+          [data-composition-id="s3-live"] #s3-ph ul {
+            list-style: none;
+            font-family: "JetBrains Mono", monospace;
+            font-size: 21px;
+            line-height: 1.95;
+            color: #e6edf3;
+          }
+          [data-composition-id="s3-live"] #s3-ph li::before {
+            content: "☐ ";
+            color: #d4a017;
+          }
+          [data-composition-id="s3-live"] #s3-ph .foot {
+            margin-top: 26px;
+            font-size: 19px;
+            color: #8b949e;
+            line-height: 1.5;
+          }
+        </style>
+
+        <!-- ▼▼ PLACEHOLDER — DELETE THIS WHOLE BLOCK WHEN REAL FOOTAGE LANDS ▼▼ -->
+        <div id="s3-ph">
+          <div class="box">
+            <div class="k">PLACEHOLDER · SEGMENT 3 · 85s UNBROKEN</div>
+            <h2>Live execution + Google Cloud console</h2>
+            <p>
+              Stage One is pass/fail and eliminates on a miss. All four proofs must be
+              <em>visibly</em> on screen in this take — true in the repo is not enough.
+            </p>
+            <ul>
+              <li>Gemini 3.5+ via the Gemini API — job output / agent_log</li>
+              <li>Google ADK as the agent framework</li>
+              <li>Cloud Run + Firestore — service, job, documents appearing</li>
+              <li>~3s on the Cloud Scheduler trigger config — the Taskmaster evidence</li>
+            </ul>
+            <div class="foot">
+              Then: Streamlit URL in the address bar → hazard cluster with its NEW THIS RUN
+              badge → ACN citations in the draft → the stripped uncited claim → Approve.
+              Say the fixture-vs-snapshot bridge line between the console and the dashboard.
+            </div>
+          </div>
+        </div>
+        <!-- ▲▲ END PLACEHOLDER ▲▲ -->
+
+        <script>
+          window.__timelines = window.__timelines || {};
+          const s3 = gsap.timeline({ paused: true });
+
+          // PLACEHOLDER ONLY — delete these two lines with the #s3-ph block.
+          s3.fromTo("#s3-ph", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5 }, 0.3);
+          s3.to("#s3-ph", { autoAlpha: 0, duration: 0.5 }, 84);
+
+          // Intentionally no other animation. Do not add any.
+          window.__timelines["s3-live"] = s3;
+        </script>
+      </div>
+    </template>
+  </body>
+</html>

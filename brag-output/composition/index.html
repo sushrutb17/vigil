@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en" data-resolution="landscape">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>VIGIL — Devpost submission video</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        margin: 0; width: 1920px; height: 1080px;
+        overflow: hidden; background: #0d1117;
+      }
+      body {
+        font-family: "Inter", sans-serif;
+        color: #e6edf3;
+      }
+      #root { position: relative; width: 1920px; height: 1080px; overflow: hidden; }
+
+      /* Full-bleed ground. Must be a child, never the root's own background:
+         the producer's frame compositing can drop a root background and render black. */
+      #ground { position: absolute; inset: 0; background: #0d1117; }
+
+      /* Scene slots fill the frame. */
+      [data-composition-id="main"] > div[data-composition-src] { position: absolute; inset: 0; }
+
+      /* Real-capture footage sits at the host root so the main timeline can reach it.
+         See hyperframes-core composition-patterns.md archetype B. */
+      .capture {
+        position: absolute; inset: 0;
+        width: 1920px; height: 1080px; object-fit: contain;
+        background: #000;
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+      VIGIL — All Things Agentic Hackathon, Taskmaster category.
+      Creative contract: ../brag-plan.md  ·  Build contract: ../composition-brief.md
+      Narration script (verbatim, fact-checked, do not paraphrase): ../../docs/DEMO_SCRIPT.md
+
+      RUNTIME 232s (3:52) against a 4:00 HARD CAP. The 8s of headroom absorbs VO
+      overrun — if segments come back long, trim scene 5 per DEMO_SCRIPT.md's stated
+      cut order (extractor table first), never the close.
+
+      Segment map (placeholder timings — scenes 1/2/5/6 retime to real VO length):
+        s1 friction      0    -> 28    28s   composed
+        s2 architecture  28   -> 58    30s   composed
+        s3 live+GCP      58   -> 143   85s   REAL CAPTURE, unbroken
+        s4 failure       143  -> 163   20s   REAL CAPTURE + overlay
+        s5 numbers       163  -> 198   35s   composed
+        s6 close         198  -> 232   34s   composed
+    -->
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="232"
+      data-width="1920"
+      data-height="1080"
+      data-fps="30"
+    >
+      <div id="ground"></div>
+
+      <!-- ============ VISUAL SCENES — track 1, sequential ============ -->
+
+      <div
+        id="el-s1"
+        data-composition-id="s1-friction"
+        data-composition-src="compositions/s1-friction.html"
+        data-start="0"
+        data-duration="28"
+        data-track-index="1"
+      ></div>
+
+      <div
+        id="el-s2"
+        data-composition-id="s2-architecture"
+        data-composition-src="compositions/s2-architecture.html"
+        data-start="28"
+        data-duration="30"
+        data-track-index="1"
+      ></div>
+
+      <div
+        id="el-s5"
+        data-composition-id="s5-numbers"
+        data-composition-src="compositions/s5-numbers.html"
+        data-start="163"
+        data-duration="35"
+        data-track-index="1"
+      ></div>
+
+      <div
+        id="el-s6"
+        data-composition-id="s6-close"
+        data-composition-src="compositions/s6-close.html"
+        data-start="198"
+        data-duration="34"
+        data-track-index="1"
+      ></div>
+
+      <!-- ============ REAL CAPTURE — track 2 ============
+        PLACEHOLDER FILES. Overwrite assets/capture/*.mp4 with the real recordings
+        (docs/VIDEO_RUNBOOK.md), then delete the placeholder overlay divs inside
+        compositions/s3-live.html and s4-failure.html.
+
+        Scene 3 is the Stage One pass/fail segment: unbroken, unedited, and it must
+        VISIBLY contain Gemini via the API, ADK, Cloud Run + Firestore, and ~3s on
+        the Cloud Scheduler trigger config. No cuts, no speed ramps, no SFX.
+      -->
+      <video
+        id="cap-s3"
+        class="capture"
+        src="assets/capture/seg3-live.mp4"
+        data-start="58"
+        data-duration="85"
+        data-track-index="2"
+        muted
+        playsinline
+      ></video>
+
+      <video
+        id="cap-s4"
+        class="capture"
+        src="assets/capture/seg4-failure.mp4"
+        data-start="143"
+        data-duration="20"
+        data-track-index="2"
+        muted
+        playsinline
+      ></video>
+
+      <!-- Overlay sub-comps ride ON TOP of the capture, so they are on a higher track. -->
+      <div
+        id="el-s3"
+        data-composition-id="s3-live"
+        data-composition-src="compositions/s3-live.html"
+        data-start="58"
+        data-duration="85"
+        data-track-index="3"
+      ></div>
+
+      <div
+        id="el-s4"
+        data-composition-id="s4-failure"
+        data-composition-src="compositions/s4-failure.html"
+        data-start="143"
+        data-duration="20"
+        data-track-index="3"
+      ></div>
+
+      <!-- ============ NARRATION — track 10 ============
+        HUMAN VOICE, recorded by the entrant. NO TTS (hackathon Q&A advised against
+        AI voiceover). These are SILENT PLACEHOLDERS at the planned durations —
+        overwrite each with the real recording, then retime.
+
+        Scenes 1/2/5/6: visuals flex to the VO length.
+        Scenes 3/4:     footage length is FIXED, so the VO must fit the footage.
+      -->
+      <audio id="vo1" src="assets/vo/seg1.wav" data-start="0"   data-duration="28" data-track-index="10" data-volume="1"></audio>
+      <audio id="vo2" src="assets/vo/seg2.wav" data-start="28"  data-duration="30" data-track-index="10" data-volume="1"></audio>
+      <audio id="vo3" src="assets/vo/seg3.wav" data-start="58"  data-duration="85" data-track-index="10" data-volume="1"></audio>
+      <audio id="vo4" src="assets/vo/seg4.wav" data-start="143" data-duration="20" data-track-index="10" data-volume="1"></audio>
+      <audio id="vo5" src="assets/vo/seg5.wav" data-start="163" data-duration="35" data-track-index="10" data-volume="1"></audio>
+      <audio id="vo6" src="assets/vo/seg6.wav" data-start="198" data-duration="34" data-track-index="10" data-volume="1"></audio>
+
+      <!-- NO MUSIC BED. Deliberate — see ../brag-plan.md § Audio direction.
+           Bundled /brag tracks top out at 164s against a 232s runtime and their cue
+           presets only analyse the first 25s; a bed under four minutes of continuous
+           technical narration also competes with numbers a judge must hear. -->
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      // Orchestrator timeline stays thin: all scene animation lives in the sub-comps.
+      // Only cross-scene work belongs here.
+      const main = gsap.timeline({ paused: true });
+
+      // Hard cut into the real footage at 58s — the cut should be felt, so there is
+      // deliberately no crossfade here. Same at 143 and out of 163.
+
+      window.__timelines["main"] = main;
+    </script>
+  </body>
+</html>

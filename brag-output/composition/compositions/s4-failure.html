@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+  <body>
+    <!--
+      SCENE 4 — Failure tolerance — 20s (2:23–2:43)
+      Real capture of:
+        set -a; source .env; set +a
+        uv run python -m pipeline.run_batch --demo --live --fail-agent risk
+      ~11s, exit 0, and SILENT between the banner and the final JSON — not hung.
+      VO: docs/DEMO_SCRIPT.md § 2:25–2:45.
+
+      Unlike scene 3, a restrained overlay IS allowed here: this segment is
+      demonstrating a behaviour, not serving as the unedited-execution proof.
+      The three callouts must never cover terminal text — they sit in the right
+      margin. Still NO SFX over the footage.
+
+      TO SWAP IN REAL FOOTAGE:
+        1. Overwrite assets/capture/seg4-failure.mp4.
+        2. Delete the #s4-ph block and its two timeline lines.
+        3. RETIME the three callouts below to the moments they actually occur in
+           the recording — the placeholder times are guesses, not measurements.
+    -->
+    <template>
+      <div
+        data-composition-id="s4-failure"
+        data-width="1920"
+        data-height="1080"
+        data-duration="20"
+        data-layout-allow-overflow="true"
+        style="position: absolute; inset: 0; overflow: hidden; pointer-events: none"
+      >
+        <style>
+          [data-composition-id="s4-failure"] {
+            font-family: "Inter", sans-serif;
+          }
+          [data-composition-id="s4-failure"] .co {
+            position: absolute;
+            right: 72px;
+            width: 520px;
+            border-left: 3px solid;
+            border-radius: 4px;
+            background: rgba(13, 17, 23, 0.9);
+            padding: 16px 22px;
+          }
+          [data-composition-id="s4-failure"] .co .k {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 17px;
+            letter-spacing: 0.08em;
+            margin-bottom: 7px;
+          }
+          [data-composition-id="s4-failure"] .co .v {
+            font-size: 23px;
+            line-height: 1.42;
+            color: #e6edf3;
+          }
+          [data-composition-id="s4-failure"] #s4-c1 { top: 232px; border-color: #d4a017; }
+          [data-composition-id="s4-failure"] #s4-c1 .k { color: #d4a017; }
+          [data-composition-id="s4-failure"] #s4-c2 { top: 430px; border-color: #f85149; }
+          [data-composition-id="s4-failure"] #s4-c2 .k { color: #f85149; }
+          [data-composition-id="s4-failure"] #s4-c3 { top: 628px; border-color: #2ea043; }
+          [data-composition-id="s4-failure"] #s4-c3 .k { color: #2ea043; }
+
+          [data-composition-id="s4-failure"] #s4-ph {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            color: #e6edf3;
+          }
+          [data-composition-id="s4-failure"] #s4-ph .box {
+            width: 900px;
+            border: 2px solid #f85149;
+            border-radius: 16px;
+            background: rgba(45, 15, 15, 0.92);
+            padding: 40px 52px;
+          }
+          [data-composition-id="s4-failure"] #s4-ph .k {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 19px;
+            letter-spacing: 0.1em;
+            color: #f85149;
+          }
+          [data-composition-id="s4-failure"] #s4-ph h2 {
+            font-size: 42px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            margin: 12px 0 10px;
+          }
+          [data-composition-id="s4-failure"] #s4-ph code {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 20px;
+            color: #8b949e;
+            line-height: 1.6;
+          }
+        </style>
+
+        <!-- ▼▼ PLACEHOLDER — DELETE WHEN REAL FOOTAGE LANDS ▼▼ -->
+        <div id="s4-ph">
+          <div class="box">
+            <div class="k">PLACEHOLDER · SEGMENT 4 · 20s</div>
+            <h2>Failure tolerance</h2>
+            <code>uv run python -m pipeline.run_batch --demo --live --fail-agent risk</code>
+          </div>
+        </div>
+        <!-- ▲▲ END PLACEHOLDER ▲▲ -->
+
+        <div id="s4-c1" class="co">
+          <div class="k">STDERR BANNER</div>
+          <div class="v">One of the three parallel agents was killed on purpose, at the real call site.</div>
+        </div>
+
+        <div id="s4-c2" class="co">
+          <div class="k">DEGRADED</div>
+          <div class="v">The brief stamps itself, so nobody mistakes it for a clean run.</div>
+        </div>
+
+        <div id="s4-c3" class="co">
+          <div class="k">CITED FALLBACK</div>
+          <div class="v">Risk Assessment falls back to a cited deterministic line. The other two agents are untouched.</div>
+        </div>
+
+        <script>
+          window.__timelines = window.__timelines || {};
+          const s4 = gsap.timeline({ paused: true });
+
+          // PLACEHOLDER ONLY — delete these two lines with the #s4-ph block.
+          s4.fromTo("#s4-ph", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4 }, 0.2);
+          s4.to("#s4-ph", { autoAlpha: 0, duration: 0.4 }, 19.2);
+
+          // RETIME THESE against the real recording — placeholder guesses.
+          // Each holds its reading floor (~0.3s/word) and never covers terminal text.
+          const callout = (sel, at) => {
+            s4.set(sel, { autoAlpha: 0 }, 0);
+            s4.fromTo(
+              sel,
+              { autoAlpha: 0, x: 26 },
+              { autoAlpha: 1, x: 0, duration: 0.45, ease: "power3.out" },
+              at,
+            );
+          };
+          callout("#s4-c1", 3.4);
+          callout("#s4-c2", 7.6);
+          callout("#s4-c3", 11.4);
+
+          // All three hold together to the end — the viewer compares them as a set.
+          s4.to(["#s4-c1", "#s4-c2", "#s4-c3"], { autoAlpha: 0, duration: 0.5 }, 18.8);
+
+          window.__timelines["s4-failure"] = s4;
+        </script>
+      </div>
+    </template>
+  </body>
+</html>

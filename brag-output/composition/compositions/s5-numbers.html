@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+  <body>
+    <!--
+      SCENE 5 — The numbers — 35s (2:43–3:18)
+      VO: docs/DEMO_SCRIPT.md § 2:45–3:20.
+
+      EVERY NUMBER HERE IS COMMITTED AND CHECKABLE:
+        eval/runs/20260829T192117Z-offline.json
+      Do not round, do not "clean up", do not add a figure that is not in that file.
+
+      DELIBERATELY OMITTED — the extractor improvement table. DEMO_SCRIPT.md says this
+      section holds three results and has room for about two, and names the extractor
+      table as the FIRST cut: it is the longest to explain and already lives in the
+      README and the Devpost description, where a judge reads it without a clock.
+
+      NOT ON SCREEN, EVER — brief factual coverage vs expert synopses. Never run.
+
+      Design law from ../composition-brief.md: the failure block gets the SAME visual
+      weight, size and hold as the clean one. The video argues that publishing bad
+      results is the feature; shrinking them here would contradict its own thesis.
+      No count-up animation on any figure — a ticking number reads as a sales gesture.
+    -->
+    <template>
+      <div
+        data-composition-id="s5-numbers"
+        data-width="1920"
+        data-height="1080"
+        data-duration="35"
+        data-layout-allow-overflow="true"
+        style="position: absolute; inset: 0; overflow: hidden"
+      >
+        <style>
+          [data-composition-id="s5-numbers"] {
+            --bg: #0d1117;
+            --text: #e6edf3;
+            --dim: #8b949e;
+            --green: #2ea043;
+            --red: #f85149;
+            --gold: #d4a017;
+            font-family: "Inter", sans-serif;
+          }
+          [data-composition-id="s5-numbers"] .s5-fill {
+            position: absolute;
+            inset: 0;
+            background: var(--bg);
+          }
+          [data-composition-id="s5-numbers"] .blk {
+            position: absolute;
+            left: 190px;
+            top: 244px;
+            width: 1540px;
+          }
+          [data-composition-id="s5-numbers"] .cap {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 21px;
+            letter-spacing: 0.09em;
+            margin-bottom: 12px;
+          }
+          [data-composition-id="s5-numbers"] h2 {
+            font-size: 50px;
+            font-weight: 600;
+            letter-spacing: -0.022em;
+            color: var(--text);
+            margin-bottom: 40px;
+            line-height: 1.16;
+          }
+          [data-composition-id="s5-numbers"] .row {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            border-top: 1px solid #21262d;
+            padding: 22px 4px;
+          }
+          [data-composition-id="s5-numbers"] .row .lab {
+            font-size: 31px;
+            color: var(--dim);
+            max-width: 1040px;
+            line-height: 1.34;
+          }
+          [data-composition-id="s5-numbers"] .row .val {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 62px;
+            font-weight: 600;
+            letter-spacing: -0.03em;
+            color: var(--text);
+            white-space: nowrap;
+            padding-left: 40px;
+          }
+          [data-composition-id="s5-numbers"] .row.good .val { color: var(--green); }
+          [data-composition-id="s5-numbers"] .row.bad .val { color: var(--red); }
+          [data-composition-id="s5-numbers"] .note {
+            margin-top: 34px;
+            font-size: 28px;
+            line-height: 1.5;
+            color: var(--dim);
+            max-width: 1400px;
+            border-left: 3px solid #30363d;
+            padding-left: 26px;
+          }
+          [data-composition-id="s5-numbers"] .note b {
+            color: var(--text);
+            font-weight: 500;
+          }
+          [data-composition-id="s5-numbers"] .src {
+            position: absolute;
+            left: 190px;
+            bottom: 86px;
+            font-family: "JetBrains Mono", monospace;
+            font-size: 20px;
+            color: #484f58;
+          }
+        </style>
+
+        <div class="s5-fill"></div>
+
+        <!-- BLOCK A — the predeclared metric that came back clean. -->
+        <div id="s5-a" class="blk">
+          <div class="cap" style="color: var(--green)">CITATION GATE · 400 SEEDED CLAIMS · 200 TRIALS</div>
+          <h2>The gate that makes every other claim checkable</h2>
+
+          <div id="s5-a1" class="row good">
+            <div class="lab">Uncited and fabricated-ACN claims caught</div>
+            <div class="val">1.000</div>
+          </div>
+          <div id="s5-a2" class="row good">
+            <div class="lab">Legitimate cited claims retained</div>
+            <div class="val">1.000</div>
+          </div>
+
+          <div id="s5-a3" class="note">
+            Retention is the load-bearing half. <b>A gate that simply deleted every claim
+            would also score a perfect catch rate.</b>
+          </div>
+        </div>
+
+        <!-- BLOCK B — the tripwire we blew through, shown at equal weight. -->
+        <div id="s5-b" class="blk">
+          <div class="cap" style="color: var(--red)">CLUSTERING vs NASA'S OWN ANOMALY TAXONOMY · 4,998 REPORTS</div>
+          <h2>And the number we would rather not have published</h2>
+
+          <div id="s5-b1" class="row">
+            <div class="lab">Purity — against a majority-class baseline of 0.219</div>
+            <div class="val">0.301</div>
+          </div>
+          <div id="s5-b2" class="row">
+            <div class="lab">Adjusted Rand index</div>
+            <div class="val">0.0018</div>
+          </div>
+          <div id="s5-b3" class="row bad">
+            <div class="lab">Noise fraction — against our own declared guard of 0.40</div>
+            <div class="val">0.837</div>
+          </div>
+
+          <div id="s5-b4" class="note">
+            We predeclared the tripwire, then blew through it by more than double.
+            <b>Tuning until the alarm stops ringing is not passing the test — it is
+            removing it.</b> The guard is in eval/guards.py and the number is in a
+            committed JSON file.
+          </div>
+        </div>
+
+        <div id="s5-src" class="src">eval/runs/20260829T192117Z-offline.json — committed, checkable</div>
+
+        <script>
+          window.__timelines = window.__timelines || {};
+          const s5 = gsap.timeline({ paused: true });
+
+          const hide = ["#s5-a", "#s5-a1", "#s5-a2", "#s5-a3", "#s5-b", "#s5-b1", "#s5-b2", "#s5-b3", "#s5-b4", "#s5-src"];
+          hide.forEach((n) => s5.set(n, { autoAlpha: 0 }, 0));
+
+          // Rows arrive one at a time and each holds its reading floor. Values never
+          // count up — they cut in already resolved.
+          const row = (sel, at) =>
+            s5.fromTo(sel, { autoAlpha: 0, y: 18 }, { autoAlpha: 1, y: 0, duration: 0.5, ease: "power3.out" }, at);
+
+          // ---- Block A: 0.5s -> 15.2s
+          s5.fromTo("#s5-a", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5 }, 0.5);
+          row("#s5-a1", 1.6);
+          row("#s5-a2", 3.4);
+          row("#s5-a3", 6.0);
+          s5.fromTo("#s5-src", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5 }, 6.6);
+          s5.to("#s5-a", { autoAlpha: 0, duration: 0.6, ease: "power2.in" }, 14.6);
+
+          // ---- Block B: 15.4s -> end. Same left edge, same type scale, same hold
+          // discipline as Block A. Equal weight is a design requirement here.
+          s5.fromTo("#s5-b", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5 }, 15.4);
+          row("#s5-b1", 16.5);
+          row("#s5-b2", 18.3);
+          row("#s5-b3", 20.1);
+          row("#s5-b4", 23.4);
+
+          window.__timelines["s5-numbers"] = s5;
+        </script>
+      </div>
+    </template>
+  </body>
+</html>

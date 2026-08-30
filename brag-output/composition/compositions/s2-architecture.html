@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+  <body>
+    <!--
+      SCENE 2 — Architecture — 30s (0:28–0:58)
+      VO: docs/DEMO_SCRIPT.md § 0:30–1:00 (verbatim).
+
+      BINDING ACCURACY NOTES from DEMO_SCRIPT.md — the diagram must not contradict them:
+        · Ingest is PLAIN CODE. Do NOT label it "ingest agents extract and dedupe".
+        · The Analyst does NOT compute risk. Risk scoring is deterministic code,
+          drawn deliberately OUTSIDE the Analyst node and in the green (no-LLM) colour.
+
+      Colour is SEMANTIC, not decorative — it encodes what each stage is permitted
+      to do, and the VO leans on it:
+        green  #2ea043 deterministic / no LLM      blue   #1f6feb LLM agent
+        gold   #d4a017 decision gate               red    #f85149 frozen / terminal
+      Source of truth for the graph: docs/architecture.png
+
+      GEOMETRY IS LOAD-BEARING — `check` cannot see text overflowing a box or the
+      frame edge, so re-snapshot after ANY copy change here. Grid:
+        row A   y=170 h=150, centre-line y=245, right edge stops at 1880 (<1920)
+        gate    centre (960, 500)
+        fan row y=660 h=118, centres x = 596 / 960 / 1324
+        verify  y=820 h=96
+        human   y=964 h=96  (bottom 1060 < 1080)
+    -->
+    <template>
+      <div
+        data-composition-id="s2-architecture"
+        data-width="1920"
+        data-height="1080"
+        data-duration="30"
+        data-layout-allow-overflow="true"
+        style="position: absolute; inset: 0; overflow: hidden"
+      >
+        <style>
+          [data-composition-id="s2-architecture"] {
+            --bg: #0d1117;
+            --text: #e6edf3;
+            --dim: #8b949e;
+            --green: #2ea043;
+            --green-fill: #0b2a15;
+            --blue: #1f6feb;
+            --blue-fill: #0d1f3d;
+            --gold: #d4a017;
+            --red: #f85149;
+            --red-fill: #2d0f0f;
+            font-family: "Inter", sans-serif;
+          }
+          [data-composition-id="s2-architecture"] .s2-fill {
+            position: absolute;
+            inset: 0;
+            background: var(--bg);
+          }
+          [data-composition-id="s2-architecture"] .n {
+            position: absolute;
+            border: 2px solid;
+            border-radius: 12px;
+            padding: 14px 18px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 6px;
+            overflow: hidden;
+          }
+          [data-composition-id="s2-architecture"] .n .t {
+            font-size: 24px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            line-height: 1.22;
+            color: var(--text);
+          }
+          [data-composition-id="s2-architecture"] .n .s {
+            font-size: 18px;
+            font-weight: 400;
+            line-height: 1.35;
+            color: var(--dim);
+          }
+          [data-composition-id="s2-architecture"] .mono {
+            font-family: "JetBrains Mono", monospace;
+          }
+          [data-composition-id="s2-architecture"] .n .t.mono { font-size: 21px; }
+          [data-composition-id="s2-architecture"] .n .s.mono { font-size: 17px; }
+          [data-composition-id="s2-architecture"] .green { border-color: var(--green); background: var(--green-fill); }
+          [data-composition-id="s2-architecture"] .blue  { border-color: var(--blue);  background: var(--blue-fill); }
+          [data-composition-id="s2-architecture"] .red   { border-color: var(--red);   background: var(--red-fill); }
+          [data-composition-id="s2-architecture"] .plain { border-color: #30363d;      background: #161b22; }
+
+          /* The no-LLM enclosure — the single most important frame in the diagram. */
+          [data-composition-id="s2-architecture"] #s2-grp {
+            position: absolute;
+            left: 372px; top: 138px; width: 566px; height: 214px;
+            border: 2px dashed var(--green);
+            border-radius: 16px;
+            background: rgba(46, 160, 67, 0.05);
+          }
+          [data-composition-id="s2-architecture"] #s2-grp-l {
+            position: absolute;
+            left: 374px; top: 104px;
+            font-size: 19px; font-weight: 600; letter-spacing: 0.04em;
+            color: var(--green);
+            font-family: "JetBrains Mono", monospace;
+          }
+
+          /* Decision gate */
+          [data-composition-id="s2-architecture"] #s2-gate {
+            position: absolute;
+            left: 872px; top: 412px; width: 176px; height: 176px;
+            display: grid; place-items: center;
+          }
+          [data-composition-id="s2-architecture"] #s2-gate .dia {
+            position: absolute; inset: 0;
+            border: 2px solid var(--gold);
+            background: #2a1f05;
+            border-radius: 10px;
+            transform: rotate(45deg);
+          }
+          [data-composition-id="s2-architecture"] #s2-gate .lab {
+            position: relative;
+            font-family: "JetBrains Mono", monospace;
+            font-size: 23px; font-weight: 600; color: var(--gold);
+            text-align: center;
+          }
+
+          [data-composition-id="s2-architecture"] #s2-svg {
+            position: absolute; inset: 0;
+            width: 1920px; height: 1080px;
+          }
+          [data-composition-id="s2-architecture"] #s2-svg path {
+            fill: none;
+            stroke: #484f58;
+            stroke-width: 2.5;
+          }
+          [data-composition-id="s2-architecture"] #s2-svg path.dashed {
+            stroke: var(--red);
+            stroke-width: 2;
+          }
+        </style>
+
+        <div class="s2-fill"></div>
+
+        <!-- connectors draw in behind the nodes -->
+        <svg id="s2-svg" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
+          <path id="s2-e1" d="M 344 245 L 396 245" />
+          <path id="s2-e2" d="M 636 245 L 684 245" />
+          <path id="s2-e3" d="M 938 245 L 986 245" />
+          <path id="s2-e4" d="M 1252 245 L 1300 245" />
+          <path id="s2-e5" class="dashed" d="M 1596 245 L 1548 245" />
+          <path id="s2-e6" d="M 1424 320 L 1424 380 L 960 380 L 960 412" />
+          <path id="s2-e7" d="M 960 588 L 960 624 L 596 624 L 596 660" />
+          <path id="s2-e8" d="M 960 588 L 960 660" />
+          <path id="s2-e9" d="M 960 588 L 960 624 L 1324 624 L 1324 660" />
+          <path id="s2-e10" d="M 596 778 L 596 796 L 1324 796 L 1324 778" />
+          <path id="s2-e11" d="M 960 778 L 960 796" />
+          <path id="s2-e12" d="M 710 796 L 710 820" />
+          <path id="s2-e13" d="M 860 868 L 940 868" />
+          <path id="s2-e14" d="M 1130 916 L 1130 940 L 960 940 L 960 964" />
+        </svg>
+
+        <!-- ROW A — corpus, the deterministic enclosure, the analyst, the risk maths -->
+        <div id="s2-corpus" class="n plain" style="left: 60px; top: 170px; width: 284px; height: 150px">
+          <div class="t">NASA ASRS corpus</div>
+          <div class="s mono">47,723 reports · test split LOCKED</div>
+        </div>
+
+        <div id="s2-grp"></div>
+        <div id="s2-grp-l">STAGES 1–2 · NO LLM CALL REACHES THIS CODE</div>
+
+        <div id="s2-ingest" class="n green" style="left: 396px; top: 170px; width: 240px; height: 150px">
+          <div class="t">Ingest</div>
+          <div class="s">NASA's own coded columns → typed record. Plain code.</div>
+        </div>
+
+        <div id="s2-cluster" class="n green" style="left: 684px; top: 170px; width: 254px; height: 150px">
+          <div class="t">Embeddings + HDBSCAN</div>
+          <div class="s">seeded, reproducible</div>
+        </div>
+
+        <div id="s2-analyst" class="n blue" style="left: 986px; top: 170px; width: 266px; height: 150px">
+          <div class="t">Analyst Agent</div>
+          <div class="s">LLM · names the hazard, writes the statement — does not score risk</div>
+        </div>
+
+        <div id="s2-risk" class="n green" style="left: 1300px; top: 170px; width: 248px; height: 150px">
+          <div class="t">Risk scoring</div>
+          <div class="s mono">0.5·sev + 0.3·freq + 0.2·trend</div>
+        </div>
+
+        <div id="s2-frozen" class="n red" style="left: 1596px; top: 170px; width: 284px; height: 150px">
+          <div class="t mono">config/frozen.yaml</div>
+          <div class="s">read-only. No agent may retune it — including the Evaluator.</div>
+        </div>
+
+        <!-- GATE -->
+        <div id="s2-gate">
+          <div class="dia"></div>
+          <div class="lab">total ≥ 0.60?</div>
+        </div>
+
+        <!-- FAN-OUT — genuinely parallel, so they reveal together, never staggered -->
+        <div id="s2-fan1" class="n blue" style="left: 466px; top: 660px; width: 260px; height: 118px">
+          <div class="t">Precedent</div>
+          <div class="s">prior matching hazards</div>
+        </div>
+        <div id="s2-fan2" class="n blue" style="left: 830px; top: 660px; width: 260px; height: 118px">
+          <div class="t">Risk Explainer</div>
+          <div class="s">why this scored where it did</div>
+        </div>
+        <div id="s2-fan3" class="n blue" style="left: 1194px; top: 660px; width: 260px; height: 118px">
+          <div class="t">Brief Writer</div>
+          <div class="s">the investigator draft</div>
+        </div>
+
+        <!-- VERIFY, THEN STOP -->
+        <div id="s2-critic" class="n blue" style="left: 560px; top: 820px; width: 300px; height: 96px">
+          <div class="t">Critic Agent</div>
+          <div class="s">LLM · removes uncited claims</div>
+        </div>
+        <div id="s2-strip" class="n green" style="left: 940px; top: 820px; width: 380px; height: 96px">
+          <div class="t mono">strip_uncited_claims</div>
+          <div class="s">always runs last, even if the Critic died</div>
+        </div>
+
+        <!-- THE TERMINAL GATE -->
+        <div id="s2-human" class="n red" style="left: 636px; top: 964px; width: 648px; height: 96px">
+          <div class="t">HUMAN APPROVAL — terminal</div>
+          <div class="s">VIGIL drafts and recommends. It never sends, files, or actions.</div>
+        </div>
+
+        <script>
+          window.__timelines = window.__timelines || {};
+          const s2 = gsap.timeline({ paused: true });
+
+          const nodes = [
+            "#s2-corpus", "#s2-grp", "#s2-grp-l", "#s2-ingest", "#s2-cluster",
+            "#s2-analyst", "#s2-risk", "#s2-frozen", "#s2-gate",
+            "#s2-fan1", "#s2-fan2", "#s2-fan3", "#s2-critic", "#s2-strip", "#s2-human",
+          ];
+          nodes.forEach((n) => s2.set(n, { autoAlpha: 0 }, 0));
+
+          const edges = [
+            "#s2-e1", "#s2-e2", "#s2-e3", "#s2-e4", "#s2-e5", "#s2-e6", "#s2-e7",
+            "#s2-e8", "#s2-e9", "#s2-e10", "#s2-e11", "#s2-e12", "#s2-e13", "#s2-e14",
+          ];
+          // Draw-on via dashoffset. Measured once at init — deterministic, no clock.
+          edges.forEach((sel) => {
+            const el = document.querySelector(sel);
+            if (!el) return;
+            const len = Math.ceil(el.getTotalLength()) + 2;
+            el.style.strokeDasharray = len;
+            el.style.strokeDashoffset = len;
+          });
+          const draw = (sel, at, dur) =>
+            s2.to(sel, { strokeDashoffset: 0, duration: dur, ease: "power2.inOut" }, at);
+          const show = (sel, at, dur = 0.55) =>
+            s2.fromTo(sel, { autoAlpha: 0, y: 16 }, { autoAlpha: 1, y: 0, duration: dur, ease: "power3.out" }, at);
+
+          // ---- Beat 1 (0.4s) — the corpus. Where everything comes from.
+          show("#s2-corpus", 0.4);
+
+          // ---- Beat 2 (2.0s) — the deterministic enclosure. Held long: this is the
+          // thesis beat and the VO dwells on "no LLM in that stage at all".
+          draw("#s2-e1", 1.5, 0.4);
+          s2.fromTo("#s2-grp", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5 }, 2.0);
+          s2.fromTo("#s2-grp-l", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5 }, 2.3);
+          show("#s2-ingest", 2.6);
+          draw("#s2-e2", 3.3, 0.35);
+          show("#s2-cluster", 3.7);
+
+          // ---- Beat 3 (6.6s) — the first LLM in the system. Colour turns blue.
+          draw("#s2-e3", 6.2, 0.4);
+          show("#s2-analyst", 6.6);
+
+          // ---- Beat 4 (9.6s) — risk is CODE, not the agent. Green on purpose.
+          draw("#s2-e4", 9.2, 0.4);
+          show("#s2-risk", 9.6);
+
+          // ---- Beat 5 (12.2s) — the frozen file and its read-only arrow.
+          show("#s2-frozen", 12.2);
+          draw("#s2-e5", 13.0, 0.5);
+
+          // ---- Beat 6 (15.8s) — the gate latches.
+          draw("#s2-e6", 15.2, 0.7);
+          s2.fromTo(
+            "#s2-gate",
+            { autoAlpha: 0, scale: 0.9 },
+            { autoAlpha: 1, scale: 1, duration: 0.6, ease: "back.out(1.6)" },
+            15.8,
+          );
+
+          // ---- Beat 7 (18.8s) — parallel fan-out. All three at once: they ARE
+          // parallel, so staggering them would misrepresent the architecture.
+          draw("#s2-e7", 18.2, 0.5);
+          draw("#s2-e8", 18.2, 0.5);
+          draw("#s2-e9", 18.2, 0.5);
+          show("#s2-fan1", 18.8);
+          show("#s2-fan2", 18.8);
+          show("#s2-fan3", 18.8);
+
+          // ---- Beat 8 (22.1s) — verify, then the deterministic backstop that runs
+          // regardless of whether the Critic survived.
+          draw("#s2-e10", 21.4, 0.5);
+          draw("#s2-e11", 21.4, 0.3);
+          draw("#s2-e12", 21.8, 0.3);
+          show("#s2-critic", 22.1);
+          draw("#s2-e13", 22.8, 0.3);
+          show("#s2-strip", 23.1);
+
+          // ---- Beat 9 (25.6s) — the terminal gate. Last thing standing, held to the end.
+          draw("#s2-e14", 25.2, 0.5);
+          show("#s2-human", 25.6, 0.7);
+
+          window.__timelines["s2-architecture"] = s2;
+        </script>
+      </div>
+    </template>
+  </body>
+</html>

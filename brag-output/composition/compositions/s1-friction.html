@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+  <body>
+    <!--
+      SCENE 1 — The friction — 28s (0:00–0:28)
+      VO: docs/DEMO_SCRIPT.md § 0:00–0:30 (verbatim, do not paraphrase)
+      Tone: polished / deadpan-adjacent restraint. One line, one caption, long holds.
+      Narrative text below is REAL public NASA ASRS narrative, pulled from
+      artifacts/demo_run.json evidence. Do not replace with invented copy.
+    -->
+    <template>
+      <div
+        data-composition-id="s1-friction"
+        data-width="1920"
+        data-height="1080"
+        data-duration="28"
+        data-layout-allow-overflow="true"
+        style="position: absolute; inset: 0; overflow: hidden"
+      >
+        <style>
+          [data-composition-id="s1-friction"] {
+            --bg: #0d1117;
+            --text: #e6edf3;
+            --dim: #8b949e;
+            --red: #f85149;
+            font-family: "Inter", sans-serif;
+          }
+          [data-composition-id="s1-friction"] .s1-fill {
+            position: absolute;
+            inset: 0;
+            background: var(--bg);
+          }
+          /* Scrolling wall of real reports — the texture of the problem. */
+          [data-composition-id="s1-friction"] #s1-wall {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 1920px;
+            opacity: 0.1;
+            font-family: "JetBrains Mono", monospace;
+            font-size: 21px;
+            line-height: 2.05;
+            color: var(--text);
+            padding: 0 90px;
+            will-change: transform;
+          }
+          [data-composition-id="s1-friction"] #s1-wall .acn {
+            color: var(--dim);
+            padding-right: 18px;
+          }
+          /* Vignette keeps the wall from competing with foreground type. */
+          [data-composition-id="s1-friction"] .s1-veil {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(
+              ellipse 78% 62% at 50% 46%,
+              rgba(13, 17, 23, 0.97) 34%,
+              rgba(13, 17, 23, 0.72) 72%,
+              rgba(13, 17, 23, 0.5) 100%
+            );
+          }
+          [data-composition-id="s1-friction"] .s1-stage {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            padding: 0 200px;
+          }
+          [data-composition-id="s1-friction"] #s1-hook {
+            font-size: 82px;
+            font-weight: 600;
+            line-height: 1.22;
+            letter-spacing: -0.022em;
+            text-align: center;
+            max-width: 1420px;
+            color: var(--text);
+          }
+          [data-composition-id="s1-friction"] #s1-scale {
+            text-align: center;
+            max-width: 1500px;
+          }
+          [data-composition-id="s1-friction"] #s1-scale .n {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 132px;
+            font-weight: 600;
+            letter-spacing: -0.03em;
+            color: var(--text);
+            display: block;
+          }
+          [data-composition-id="s1-friction"] #s1-scale .l {
+            display: block;
+            margin-top: 26px;
+            font-size: 34px;
+            font-weight: 400;
+            line-height: 1.5;
+            color: var(--dim);
+          }
+          [data-composition-id="s1-friction"] #s1-scale .l em {
+            color: var(--text);
+            font-style: normal;
+          }
+          [data-composition-id="s1-friction"] #s1-window {
+            font-size: 74px;
+            font-weight: 600;
+            line-height: 1.25;
+            letter-spacing: -0.02em;
+            text-align: center;
+            max-width: 1400px;
+            color: var(--text);
+          }
+          [data-composition-id="s1-friction"] #s1-window b {
+            color: var(--red);
+            font-weight: 600;
+          }
+        </style>
+
+        <div class="s1-fill"></div>
+
+        <div id="s1-wall" data-layout-allow-occlusion="true">
+          <div><span class="acn">ACN 1461959</span>While on dogleg to final for a visual approach to 24R; I noticed a drone at about 200 feet distance on the right side of the aircraft.</div>
+          <div><span class="acn">ACN 1748192</span>On final approach; approximately 4 miles from touchdown at approximately 1200 ft AGL; I spotted what initially appeared to be a large bird.</div>
+          <div><span class="acn">ACN 1130209</span>On my third solo flight; I crossed the threshold at 70 KTS. I landed slightly flat and fast. Upon landing rollout the aircraft swerved.</div>
+          <div><span class="acn">ACN 1799467</span>While flying a routine weekly route I came across a very small unmanned drone. I flew past him at very close proximity.</div>
+          <div><span class="acn">ACN 1490553</span>I was flying with my instructor; about to turn towards the airport and land; when a Beechcraft passed us with less than 100 feet of clearance.</div>
+          <div><span class="acn">ACN 1026406</span>Runway excursion due to temporary loss of control. Shortly after landing; directional control was lost resulting in a runway excursion.</div>
+          <div><span class="acn">ACN 1419324</span>I was working Local South and I had Aircraft X doing stop and goes. Aircraft X was just about ready to touch down when I saw Aircraft Y.</div>
+          <div><span class="acn">ACN 1640441</span>While flying a scenic flight with 2 passengers on board at 550 MSL over terrain surveyed at 15' MSL; putting our ship at approximately 535 AGL.</div>
+          <div><span class="acn">ACN 1470131</span>We were about 10 mile NE of ANE under the Mode C for MSP and on the CTAF for 25D monitoring for parachute activity in the area.</div>
+          <div><span class="acn">ACN 1111863</span>On VFR flight plan with student to GBN. On western heading at altitude of 4;500. Approach informed us of possible traffic conflict.</div>
+          <div><span class="acn">ACN 1712248</span>While taxiing into parking; I was taxied over the elevator tie down rope and the engine sucked the tie down rope through the spinner.</div>
+          <div><span class="acn">ACN 1295187</span>Just after approximately mid field downwind; after completing the landing checklist I looked out of the left hand side of the aircraft.</div>
+          <div><span class="acn">ACN 1044401</span>Leaving MJD; I departed parallel Runway 18 and stayed out of and to the west of R-4403. I was flying at approximately 750 FT.</div>
+          <div><span class="acn">ACN 1699435</span>The event filed took place after myself and two friends took up my friend's plane to pick up a part from FBO X.</div>
+          <div><span class="acn">ACN 1461959</span>The drone appeared to be a quadcopter; black and about two feet in diameter. No evasive action was possible at that range.</div>
+          <div><span class="acn">ACN 1748192</span>I was unable to determine whether the object was rotorcraft or unmanned until it had already passed below the glide path.</div>
+          <div><span class="acn">ACN 1130209</span>I overcorrected to the right and departed the runway surface onto the grass. No injuries; aircraft was undamaged.</div>
+          <div><span class="acn">ACN 1799467</span>When I first noticed it; I thought it was a distant airplane and then thought maybe it was a bird before identifying it.</div>
+        </div>
+
+        <div class="s1-veil"></div>
+
+        <div class="s1-stage">
+          <div id="s1-hook">A safety report that matters looks exactly like one that doesn't.</div>
+        </div>
+
+        <div class="s1-stage">
+          <div id="s1-scale">
+            <span class="n">100,000+</span>
+            <span class="l">confidential safety reports a year reach NASA's Aviation Safety Reporting System — and <em>every one is read by two expert analysts within three working days</em>.</span>
+          </div>
+        </div>
+
+        <div class="s1-stage">
+          <div id="s1-window">The pattern across forty of them surfaces months later. <b>That gap is a risk window.</b></div>
+        </div>
+
+        <script>
+          window.__timelines = window.__timelines || {};
+          const s1 = gsap.timeline({ paused: true });
+
+          // Reading floors (brag step-2): sentence ~0.3s/word, min 1.2s.
+          // The hook is 11 words -> ~3.3s floor; it holds ~9s because the VO is
+          // still setting up the problem underneath it. Restraint is the point.
+
+          // The wall drifts for the whole scene. One long linear tween = seek-safe.
+          s1.fromTo("#s1-wall", { y: 60 }, { y: -620, duration: 28, ease: "none" }, 0);
+          s1.fromTo("#s1-wall", { opacity: 0 }, { opacity: 0.1, duration: 1.6, ease: "power1.out" }, 0);
+
+          // Beat 1 — the hook. 0.9s -> 11.2s
+          s1.set("#s1-hook", { autoAlpha: 0 }, 0);
+          s1.fromTo(
+            "#s1-hook",
+            { autoAlpha: 0, y: 26 },
+            { autoAlpha: 1, y: 0, duration: 1.1, ease: "power3.out" },
+            0.9,
+          );
+          s1.to("#s1-hook", { autoAlpha: 0, y: -18, duration: 0.7, ease: "power2.in" }, 10.5);
+
+          // Beat 2 — the scale of the human process VIGIL is mirroring. 11.9s -> 20.6s
+          s1.set("#s1-scale", { autoAlpha: 0 }, 0);
+          s1.fromTo(
+            "#s1-scale",
+            { autoAlpha: 0, y: 24 },
+            { autoAlpha: 1, y: 0, duration: 1.0, ease: "power3.out" },
+            11.9,
+          );
+          s1.to("#s1-scale", { autoAlpha: 0, y: -16, duration: 0.7, ease: "power2.in" }, 19.9);
+
+          // Beat 3 — names the gap, hands off to the architecture scene. 21.0s -> 28s
+          s1.set("#s1-window", { autoAlpha: 0 }, 0);
+          s1.fromTo(
+            "#s1-window",
+            { autoAlpha: 0, y: 24 },
+            { autoAlpha: 1, y: 0, duration: 1.0, ease: "power3.out" },
+            21.0,
+          );
+
+          window.__timelines["s1-friction"] = s1;
+        </script>
+      </div>
+    </template>
+  </body>
+</html>
