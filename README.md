@@ -9,6 +9,28 @@ Run, with the batch pipeline running as a Cloud Run job that persists reports,
 clusters, escalations, and a per-agent call log (model, tokens, latency) to
 Firestore.
 
+## The problem
+
+NASA's Aviation Safety Reporting System takes in over 100,000 confidential
+incident reports a year, every one read by expert human analysts. The value is
+not in any single report — it is in noticing that eleven separately-filed
+reports over five weeks describe the same emerging hazard, a fact that exists
+only in the aggregate. VIGIL compresses "40 similar reports filed separately"
+into "one named hazard with a source-cited draft brief," running unattended on
+a weekly Cloud Scheduler trigger, with a human as the only terminal gate.
+
+## The architecture in one picture
+
+![VIGIL architecture](docs/architecture.png)
+
+Reading the diagram: everything green is deterministic code, everything blue is a
+model call. The two are deliberately not interchangeable. Clustering and risk
+scoring contain **no** model call, the Analyst names hazards but never computes
+risk, and the last thing to touch any brief is deterministic code rather than an
+agent. The headline feature is what the agents are structurally forbidden from
+doing — the full invariant list, each enforced by a test, is in
+[Architecture and safety invariants](#architecture-and-safety-invariants).
+
 ## What is runnable now
 
 ### No credentials required
@@ -21,9 +43,10 @@ make check    # ruff + pytest
 ```
 
 `make ui` serves `artifacts/demo_run.json` when present — a committed snapshot of
-a real live run over real ASRS data (23 hazard clusters, 4 escalated, 816 reports
-triaged), so the UI shows genuine model-written briefs without any credentials.
-It falls back to the bundled fixture if that file is absent.
+a real live run over real ASRS data (23 hazard clusters, 4 escalated, 1,328
+severe singletons, 5,000 reports triaged), so the UI shows genuine model-written
+briefs without any credentials. It falls back to the bundled fixture if that
+file is absent.
 
 ### With real data
 
@@ -148,15 +171,9 @@ to echo it cannot make a partial-failure brief look clean.
 
 ## Architecture and safety invariants
 
-![VIGIL architecture](docs/architecture.png)
-
-Reading the diagram: everything green is deterministic code, everything blue is a
-model call. The two are deliberately not interchangeable. Clustering and risk
-scoring contain **no** model call, the Analyst names hazards but never computes
-risk, and the last thing to touch any brief is deterministic code rather than an
-agent.
-
-The offline self-improvement loop is a separate system that never runs in the
+The main pipeline diagram and its reading key are at the
+[top of this file](#the-architecture-in-one-picture). The offline
+self-improvement loop is a separate system that never runs in the
 live pipeline:
 
 ![Self-improvement loop](docs/self-improvement-loop.png)
