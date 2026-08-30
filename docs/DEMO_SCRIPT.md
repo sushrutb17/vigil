@@ -2,6 +2,47 @@
 
 Judging targets: problem + value prop stated, architecture explained, **unedited live execution**, **visible Google Cloud proof**. Talking head optional; screen + voiceover is fine.
 
+## Pre-flight — do all five before the first take
+
+1. **Warm the hosted URL.** Open `https://vigil-ui-715230861973.us-central1.run.app`
+   once and let it finish. At `--min-instances 0` a cold start leaves the
+   right-hand draft column blank for ~10s, which reads on camera as a broken app.
+2. **Export the key in the recording shell**: `set -a; source .env; set +a`.
+   A fresh terminal drops it and `--live` then fails.
+3. **Clear the screen**: close unrelated tabs, hide the bookmarks bar, clear the
+   desktop, turn on Do Not Disturb. No third-party logos/trademarks anywhere —
+   this is a compliance item, not tidiness.
+4. **Terminal**: ≥16pt font, dark theme, cleared scrollback.
+5. **Dry-run the two live commands once** (below) so you know their duration and
+   nothing surprises you mid-take.
+
+## Time budget (4:00 hard cap — judges may watch nothing past it)
+
+| Segment | Window | Length |
+|---|---|---|
+| 1 · The friction (BYOF) | 0:00–0:30 | 30s |
+| 2 · Architecture | 0:30–1:00 | 30s |
+| 3 · Live execution + GCP proof | 1:00–2:25 | **85s — one unbroken take** |
+| 4 · Failure tolerance | 2:25–2:45 | 20s |
+| 5 · The numbers | 2:45–3:20 | 35s |
+| 6 · Close | 3:20–4:00 | 40s |
+
+**Record as six segments and stitch**, keeping segment 3 unbroken. A single
+flawless 4-minute take is not worth chasing; the "unedited" requirement applies
+to the live execution, not to the whole video.
+
+**The two live commands, ready to paste:**
+
+```bash
+# Segment 3 — the Cloud Run job (exercises Gemini + ADK + Cloud Run + Firestore)
+gcloud run jobs execute vigil-batch --project vigil-hackathon-506218 \
+  --region us-central1 --wait
+
+# Segment 4 — failure tolerance (~11s, silent until it finishes; not hung)
+set -a; source .env; set +a
+uv run python -m pipeline.run_batch --demo --live --fail-agent risk
+```
+
 ## 0:00–0:35 — The friction (BYOF)
 "I manage operations for an airline flight-ops department. Safety reports arrive faster than analysts can read them. Each one looks minor and gets filed. The pattern across forty of them — same component, same aircraft type, same flight phase — surfaces months later in a quarterly review. That gap is a risk window. I built VIGIL to close it."
 On screen: scrolling raw ASRS narratives (public NASA data) + caption: "NASA ASRS: 100,000+ reports/yr — each screened by two human analysts within 3 working days." Optional half-sentence of VO: "NASA's own program pays two analysts to read every single one."
@@ -19,7 +60,48 @@ Deterministic ingest reads NASA's own coded fields → deterministic clustering,
 5. Open the draft brief: every claim carries an ACN citation; show the critic having stripped an uncited claim
 6. Click **Approve** — the brief downloads as a Markdown packet — and say the line: "approval is the only exit; drafts, never decisions"
 
-## 2:45–3:25 — The numbers (our unfair advantage)
+**Say this bridge line between steps 3 and 4, or the segment looks incoherent.**
+The job you just triggered processes the 6-report demo fixture; the UI you are
+about to open serves a committed snapshot of a real 5,000-report run. A judge
+watching 6 reports go in and 23 clusters come out will notice. The reason is
+good, so say it:
+
+> "That job just ran the full agent graph in the cloud on a small fixture —
+> that's the live proof. The dashboard serves a committed snapshot of a real
+> five-thousand-report run, so it loads instantly for you without a model call
+> per page view, and without depending on my API quota surviving the judging
+> window. Same pipeline, same code, bigger slice."
+
+## 2:25–2:45 — Failure tolerance (20s)
+
+Terminal, one command, ~11s of runtime:
+
+```bash
+uv run python -m pipeline.run_batch --demo --live --fail-agent risk
+```
+
+It prints nothing between the fault-injection banner and the final JSON —
+**silent, not hung.** On screen, point at three things in the output:
+
+- the stderr banner: `!! FAULT INJECTION ACTIVE: risk will raise…`
+- `DEGRADED` in the brief
+- `## Risk Assessment` carrying its **cited deterministic fallback**, while
+  `## Recommended Brief` is still model-authored
+
+> "I killed one of the three parallel agents on purpose. Its section fell back
+> to a cited deterministic line, the other two were untouched, and the brief is
+> stamped DEGRADED so nobody mistakes it for a clean run. The failure is
+> injected at the real call site, so it travels the same path a genuine API
+> outage would."
+
+## 2:45–3:20 — The numbers (35s — more content than time; cut in this order)
+
+**This section holds three results and room for roughly two.** Priority, highest
+value first: (1) the Critic gate, (2) the noise-fraction failure, (3) the
+extractor improvement table. **Cut (3) first** — it is the longest to explain and
+it is already in the README and the Devpost description, where a judge will read
+it without a clock running. Cut (2) only if you are badly over; it is the
+credibility beat and the cheapest way to earn trust on every other number.
 
 **Only say numbers that exist.** Everything below is in `eval/runs/*.json`, which
 is committed, so a judge can check it.
