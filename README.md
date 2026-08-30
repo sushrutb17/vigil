@@ -23,6 +23,11 @@ a weekly Cloud Scheduler trigger, with a human as the only terminal gate.
 
 ![VIGIL architecture](docs/architecture.png)
 
+*Also available as an **[interactive diagram](https://vigil-architecture.vercel.app/diagram.html?theme=light)** — the same live path,
+pannable and searchable, with per-node detail and route tracing between stages.
+The PNG above stays the canonical figure; the hosted version is for reading the
+graph closely.*
+
 Reading the diagram: everything green is deterministic code, everything blue is a
 model call. The two are deliberately not interchangeable. Clustering and risk
 scoring contain **no** model call, the Analyst names hazards but never computes
@@ -172,7 +177,8 @@ to echo it cannot make a partial-failure brief look clean.
 ## Architecture and safety invariants
 
 The main pipeline diagram and its reading key are at the
-[top of this file](#the-architecture-in-one-picture). The offline
+[top of this file](#the-architecture-in-one-picture), and the same live path is
+browsable as an [interactive diagram](https://vigil-architecture.vercel.app/diagram.html?theme=light). The offline
 self-improvement loop is a separate system that never runs in the
 live pipeline:
 

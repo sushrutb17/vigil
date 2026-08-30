@@ -122,6 +122,9 @@ stops at a human's desk. (Sources: asrs.arc.nasa.gov; NTRS document
   Manager** for the API key, with two least-privilege runtime service accounts.
 - **Data:** NASA ASRS via the Hugging Face dataset `elihoole/asrs-aviation-reports`
   (47,723 reports, Apache-2.0 packaging; NASA ASRS as the underlying source).
+- **The architecture diagram** attached to this submission is also published as an
+  interactive version — https://vigil-architecture.vercel.app/diagram.html?theme=light —
+  where the same live path can be panned, searched, and traced node by node.
 
 Two architecture decisions worth naming, since the rubric asks about engineering
 judgment rather than API calls:

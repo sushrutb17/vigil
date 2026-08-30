@@ -230,6 +230,7 @@ published.
 
 - Live: https://vigil-ui-715230861973.us-central1.run.app
 - Code: https://github.com/sushrutb17/vigil
+- Architecture, interactive: https://vigil-architecture.vercel.app/diagram.html?theme=light
 
 *This project was created for entry into the All Things Agentic Hackathon.*
 
@@ -238,7 +239,9 @@ published.
 # Post 2 — social (LinkedIn)
 
 > Paste as-is. Attach `docs/architecture.png`, or a screenshot of the live UI
-> showing the hazard queue.
+> showing the hazard queue. The link block at the bottom also carries the
+> interactive diagram — LinkedIn only previews one link, so keep the attached
+> image as the visual and let the diagram be a click.
 >
 > **Value-led on purpose.** LinkedIn shows ~2 lines before "see more", and a
 > mixed audience did not opt into a post-mortem. What it does and what it
@@ -286,6 +289,7 @@ not one you should trust.
 
 Live: https://vigil-ui-715230861973.us-central1.run.app
 Code: https://github.com/sushrutb17/vigil
+Architecture, interactive: https://vigil-architecture.vercel.app/diagram.html?theme=light
 
 Created for entry into the All Things Agentic Hackathon.
 
@@ -297,6 +301,12 @@ Created for entry into the All Things Agentic Hackathon.
 
 > Thread opener, then the three failures as replies. Keep #AllThingsAgentic on
 > the first post so it's attached to the thread root.
+>
+> The interactive architecture diagram (https://vigil-architecture.vercel.app) is
+> deliberately **not** in the thread body — post 6 already carries two links and a
+> third costs characters for the least-clicked one. If you want it, post it as a
+> reply to 5/, where the "what they're forbidden from doing" claim is the thing a
+> reader would want to check against the graph.
 
 **1/** I spent 11 days building an AI system for aviation safety triage. The most
 useful thing I can tell you is what it got wrong — and why I shipped the numbers

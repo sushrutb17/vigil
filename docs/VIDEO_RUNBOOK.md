@@ -129,7 +129,10 @@ Everything the Devpost form needs is pre-filled in
 Do not forget, in order of how easy they are to skip:
 
 - **The architecture diagram must be uploaded to the form.** `docs/architecture.png`
-  — the README embed does not carry over.
+  — the README embed does not carry over, and neither does the interactive diagram
+  at <https://vigil-architecture.vercel.app/diagram.html?theme=light>.
+  That page is a nice thing to pan across on screen during the architecture beat,
+  but the form wants the file.
 - **The three URLs are form fields, not body text.** `DEVPOST_DRAFT.md` has no
   placeholder markers for them, which makes them easy to miss under time pressure.
 - **AI-assistant disclosure** (Claude Code / Codex) and the built-within-the-

@@ -11,7 +11,14 @@ One-line: **batch triage pipeline that compresses "40 similar reports filed sepa
 > PHASES.md records *state*.
 
 Diagrams: `docs/architecture.png` (live path) and `docs/self-improvement-loop.png`
-(offline loop), generated from the `.mermaid` sources beside them.
+(offline loop), generated from the `.mermaid` sources beside them. The live path is
+additionally published as an interactive diagram at
+<https://vigil-architecture.vercel.app/diagram.html?theme=light> — pannable, searchable,
+with per-node detail and route tracing. It is a **supplement**, not a replacement:
+the committed PNGs remain the canonical figures (they are what the Devpost form
+takes, and they survive in the repo if the hosted page ever goes away). The bare
+domain `vigil-architecture.vercel.app` serves the identical page; the `?theme=light`
+parameter only pins the initial theme.
 
 ## Stage map → what actually runs
 

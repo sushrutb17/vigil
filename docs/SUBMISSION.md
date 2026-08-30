@@ -11,6 +11,7 @@ Category: **Taskmaster.** Entrant: solo individual (also eligible for the Indivi
 | Hosted project URL | `https://vigil-ui-715230861973.us-central1.run.app` |
 | Repo URL (public) | `https://github.com/sushrutb17/vigil` |
 | Architecture diagram | `docs/architecture.png` — **upload the file**; the README embed does not carry over to the form |
+| Interactive diagram (optional extra) | <https://vigil-architecture.vercel.app/diagram.html?theme=light> — a supplementary link for the description body only. **It does not satisfy the diagram requirement** — the PNG upload still has to happen. |
 | Description body | `docs/DEVPOST_DRAFT.md`, paste-ready (~1,600 words, includes the literal "The Twist" section and the ASRS institutional-mirror paragraph) |
 | Data credit | NASA ASRS, packaged as HF `elihoole/asrs-aviation-reports` (Apache-2.0 packaging) |
 | AI-assistant disclosure | Claude Code / Codex |
