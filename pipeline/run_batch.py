@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import sys
 from collections import Counter
@@ -457,6 +458,17 @@ def main() -> None:
         parser.error("pass exactly one of --demo or --dataset PATH")
     if args.fail_agent and not args.live:
         parser.error("--fail-agent only affects the live coordinator; pass --live too")
+    if args.live and not os.environ.get("GOOGLE_API_KEY"):
+        # The Makefile's require-key target guards `make run-live`/`artifact`/
+        # `improve`, but not a direct `python -m pipeline.run_batch --live`,
+        # which is exactly the form the README's failure-tolerance section tells
+        # a reader to run. Without this, the key is missing until ADK builds its
+        # client deep inside three worker threads, and the real cause arrives
+        # buried in ~700 lines of traceback from a crashed thread.
+        parser.error(
+            "--live needs GOOGLE_API_KEY. Put it in .env (gitignored) and run "
+            "`set -a; source .env; set +a`, or export it, then retry."
+        )
     if args.fail_agent:
         # Loud and on stderr: an injected run must never be mistaken for a real
         # one when someone finds its output later. The DEGRADED banner in the
