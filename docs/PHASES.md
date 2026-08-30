@@ -31,7 +31,9 @@ incomplete or unverified) · ⬜ Not Started · 🚫 Blocked (see note for what 
 feature status), `GATE_DECISION.md` (the Aug 28 scope decision), `PROGRESS.md`
 (dated journal — the *why* behind changes), `ARCHITECTURE.md` (the design contract
 every feature below has to satisfy), `DATA.md` / `EVAL.md` / `DEMO_SCRIPT.md` /
-`SUBMISSION.md` (reference detail for Phases 2, 3, 5, 7).
+`SUBMISSION.md` (reference detail for Phases 2, 3, 5, 7), **`VIDEO_RUNBOOK.md`**
+(how to actually record, upload and verify the Phase 7 video — start there, not in
+`DEMO_SCRIPT.md`).
 
 ---
 
@@ -197,7 +199,7 @@ would be dishonest.
 |---|---|---|
 | Demo script | ✅ Done | `docs/DEMO_SCRIPT.md` |
 | Failure-tolerance demo path recorded | 🔶 Partial | **Run verified 2026-08-30; only the screen-recording remains.** Command (needs the key in the same shell): `set -a; source .env; set +a` then `uv run python -m pipeline.run_batch --demo --live --fail-agent risk`. Measured this run: **11s wall, exit 0**, one clean stderr banner, and a brief carrying `DEGRADED` whose `## Risk Assessment` fell back to the cited deterministic line (`Deterministic risk score 0.69 (severity 1.00, frequency 0.30, trend 0.50)`) while `## Recommended Brief` stayed model-authored — 2-of-3 isolation visible in one screen. Cheap to re-shoot. **Note for the take:** the run prints nothing between the banner and the final JSON, so it is ~11s of silent terminal; do not mistake that for a hang, and budget for it against the 4-minute limit. |
-| ≤4-min video (GCP console/Cloud Run proof + unedited live execution), uploaded public | ⬜ Not Started | 🚫 Blocked by: Phase 4 deploy |
+| ≤4-min video (GCP console/Cloud Run proof + unedited live execution), uploaded public | ⬜ Not Started | **Unblocked 2026-08-30** — Phase 4 deploy is done and verified. Everything upstream of recording is finished; nothing blocks this but recording it. **Start at [`VIDEO_RUNBOOK.md`](VIDEO_RUNBOOK.md)** (pre-flight, exact commands, mechanics, upload, verification), then record against [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md) (narration, shot list, 4:00 budget). |
 | Devpost submission draft (description, track=Taskmaster, repo/hosted/video URLs, diagram) | 🔶 Partial | **Paste-ready draft written 2026-08-29: `docs/DEVPOST_DRAFT.md`** (~1,600 words, includes the required Twist section, the ASRS institutional-mirror paragraph, and a findings section built from the real failures). Still needs the repo/hosted/video URLs and actual submission. Description must include a literal **"The Twist"** section (restraint made mechanical: no-LLM clustering, frozen thresholds, locked holdout, citation critic, the caught reward-hack) + the ASRS institutional-mirror paragraph — see SUBMISSION.md |
 | Bonus: dev.to/Medium writeup + LinkedIn post | ⬜ Not Started | Stretch, per BUILD_PLAN cut list |
 | Final submission | ⬜ Not Started | Deadline: Aug 31, 5:00pm PDT / 8:00pm ET |

@@ -14,7 +14,7 @@ Category: **Taskmaster.** Entrant: solo individual (also eligible for the Indivi
 | Description body | `docs/DEVPOST_DRAFT.md`, paste-ready (~1,600 words, includes the literal "The Twist" section and the ASRS institutional-mirror paragraph) |
 | Data credit | NASA ASRS, packaged as HF `elihoole/asrs-aviation-reports` (Apache-2.0 packaging) |
 | AI-assistant disclosure | Claude Code / Codex |
-| Video URL | ⬜ *not yet recorded* |
+| Video URL | ⬜ *not yet recorded* — see [`VIDEO_RUNBOOK.md`](VIDEO_RUNBOOK.md) |
 
 > Cloud Run answers on two URL forms — the project-number one above and
 > `https://vigil-ui-6bbjbbpdca-uc.a.run.app`. Both return 200. **Use the
@@ -36,7 +36,7 @@ Category: **Taskmaster.** Entrant: solo individual (also eligible for the Indivi
 - **Stage Three bonus:** +0.2 content post, +0.2 social post, +0.2 per additional Google model (Gemma/Veo/Lyria) up to 0.6. **Decision: Gemma only, stretch only.** Do not chase Veo/Lyria or the Multimodal UX side prize — forcing them into a safety-triage tool costs 30%-criterion points to gain bonus decimals.
 
 ## Mandatory tech (verify all three are visibly true in repo + video)
-- [ ] Gemini 3.5+ via Gemini API or Vertex AI
+- [ ] Gemini 3.5+ via Gemini API or Vertex AI *(true in repo; tick only after you see it in your own footage — [`VIDEO_RUNBOOK.md`](VIDEO_RUNBOOK.md) §3)*
 - [ ] Google Agent Framework: **ADK (Python)**
 - [ ] GCP infra service: **Cloud Run + Firestore**
 
@@ -49,7 +49,7 @@ Category: **Taskmaster.** Entrant: solo individual (also eligible for the Indivi
 - [x] Repo URL (public; if private instead, grant testing@devpost.com and cloudhackathons@google.com)
 - [x] README spin-up instructions (reproducibility is an explicit judging line item)
 - [x] Architecture diagram (export the mermaid to PNG; also embed in README) — **PNG exists and is embedded; still must be uploaded to the form**
-- [ ] Video ≤4 min, public YouTube/Vimeo, English: problem + value prop + live demo + **GCP console proof on screen**; console segment includes ~3s of the Cloud Scheduler trigger config (background-workflow proof)
+- [ ] Video ≤4 min, public YouTube/Vimeo, English: problem + value prop + live demo + **GCP console proof on screen**; console segment includes ~3s of the Cloud Scheduler trigger config (background-workflow proof) — **step-by-step: [`VIDEO_RUNBOOK.md`](VIDEO_RUNBOOK.md)**
 - [ ] Project built entirely within the Submission Period (started Aug 20 — compliant); disclose AI coding assistants used (Claude Code / Codex) and any third-party libs
 
 ## Compliance checks

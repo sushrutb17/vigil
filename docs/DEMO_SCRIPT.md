@@ -2,19 +2,9 @@
 
 Judging targets: problem + value prop stated, architecture explained, **unedited live execution**, **visible Google Cloud proof**. Talking head optional; screen + voiceover is fine.
 
-## Pre-flight — do all five before the first take
-
-1. **Warm the hosted URL.** Open `https://vigil-ui-715230861973.us-central1.run.app`
-   once and let it finish. At `--min-instances 0` a cold start leaves the
-   right-hand draft column blank for ~10s, which reads on camera as a broken app.
-2. **Export the key in the recording shell**: `set -a; source .env; set +a`.
-   A fresh terminal drops it and `--live` then fails.
-3. **Clear the screen**: close unrelated tabs, hide the bookmarks bar, clear the
-   desktop, turn on Do Not Disturb. No third-party logos/trademarks anywhere —
-   this is a compliance item, not tidiness.
-4. **Terminal**: ≥16pt font, dark theme, cleared scrollback.
-5. **Dry-run the two live commands once** (below) so you know their duration and
-   nothing surprises you mid-take.
+> **Before recording, read [`VIDEO_RUNBOOK.md`](VIDEO_RUNBOOK.md)** — pre-flight,
+> the exact commands, recording mechanics, upload and verification live there.
+> This file is what you *say and show*; that one is how you *operate*.
 
 ## Time budget (4:00 hard cap — judges may watch nothing past it)
 
@@ -31,28 +21,18 @@ Judging targets: problem + value prop stated, architecture explained, **unedited
 flawless 4-minute take is not worth chasing; the "unedited" requirement applies
 to the live execution, not to the whole video.
 
-**The two live commands, ready to paste:**
+Commands to paste are in [`VIDEO_RUNBOOK.md`](VIDEO_RUNBOOK.md) §2.
 
-```bash
-# Segment 3 — the Cloud Run job (exercises Gemini + ADK + Cloud Run + Firestore)
-gcloud run jobs execute vigil-batch --project vigil-hackathon-506218 \
-  --region us-central1 --wait
-
-# Segment 4 — failure tolerance (~11s, silent until it finishes; not hung)
-set -a; source .env; set +a
-uv run python -m pipeline.run_batch --demo --live --fail-agent risk
-```
-
-## 0:00–0:35 — The friction (BYOF)
+## 0:00–0:30 — The friction (BYOF)
 "I manage operations for an airline flight-ops department. Safety reports arrive faster than analysts can read them. Each one looks minor and gets filed. The pattern across forty of them — same component, same aircraft type, same flight phase — surfaces months later in a quarterly review. That gap is a risk window. I built VIGIL to close it."
 On screen: scrolling raw ASRS narratives (public NASA data) + caption: "NASA ASRS: 100,000+ reports/yr — each screened by two human analysts within 3 working days." Optional half-sentence of VO: "NASA's own program pays two analysts to read every single one."
 
-## 0:35–1:05 — Architecture (30 seconds, diagram on screen)
+## 0:30–1:00 — Architecture (30 seconds, diagram on screen)
 Deterministic ingest reads NASA's own coded fields → deterministic clustering, **no LLM in that stage at all** → an analyst agent names the hazard and writes the statement, while *code* — not the agent — computes the risk score → above a frozen threshold, a coordinator fans out three agents in parallel → a critic strips uncited claims, and then a deterministic gate runs again regardless → **a human approves. The system never actions anything itself.**
 
 *(Accuracy note for the VO: do not say "ingest agents extract and dedupe" — those stages were cut, ingest is plain code. Do not say the analyst scores risk; it doesn't. Both were in the old script and both contradict the diagram on screen.)*
 
-## 1:05–2:45 — Live execution (the unedited core — one continuous take)
+## 1:00–2:25 — Live execution (the unedited core — one continuous take)
 1. Trigger Cloud Run batch job on "this quarter's intake" (terminal visible) — mention it normally fires weekly via Cloud Scheduler; today we trigger it by hand for the camera
 2. Logs stream: extraction counts, cluster formation, one cluster crosses threshold
 3. **Cut to GCP console: Cloud Run dashboard + Firestore documents appearing** (mandatory proof) + ~3s on the Cloud Scheduler trigger config (background-workflow proof)
@@ -170,7 +150,7 @@ stronger one, because it is about the safety mechanism rather than the model:
 > disappears. A fabricated one survives carrying false authority. We found it by
 > reading the brief, not from any log. The gate now validates provenance."
 
-## 3:25–4:00 — Close
+## 3:20–4:00 — Close
 "The twist isn't what these agents can do — it's what they're structurally forbidden from doing. Frozen risk thresholds — a safety system must not quietly retune its own severity bar. Human approval on every output. Built solo in 11 days on Gemini, ADK, Cloud Run, and Firestore. The pattern generalizes to every safety-critical intake queue: rail, medical devices, energy. VIGIL turns a report backlog into a ranked hazard list with an evidence-cited brief — hours, not months."
 
 ## Recording notes
