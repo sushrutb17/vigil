@@ -18,6 +18,62 @@ Entry format:
 
 ---
 
+## 2026-08-30 ~01:00 ET — Claude Code (closed every remaining live-verification gap)
+- Last commit: `c4334e8` Regenerate artifacts/demo_run.json from a real --live run
+- Finished (asked directly to "get that sorted" after the previous handoff flagged
+  these as open):
+  - **`artifacts/demo_run.json` regenerated for real.** `GOOGLE_API_KEY` was
+    already in `.env` and the real dataset already downloaded, so ran the actual
+    `--live --slice 5000` pipeline twice against a local Firestore emulator
+    (installed this session, never touched production infra). 23 clusters, 4
+    escalated, **1,328 severe singletons** now visible (was 0 under the old
+    schema-v1 snapshot), zero DEGRADED, zero unresolved citations.
+  - **T1-02's outstanding acceptance gap closed**: two of the four escalated
+    clusters have real precedent evidence (6 and 9 precedent ACNs) in their
+    live-drafted briefs — previously only shown via hand-built test fixtures.
+  - **T1-04's outstanding gap closed**: ran the same live pipeline twice (two
+    full live Analyst/Coordinator/Critic passes, not a same-process shortcut);
+    every cluster in the final artifact carries `hazard_history` with 2 real
+    chronologically-ordered observations.
+  - **The literal manual browser smoke test happened**, not just `AppTest`.
+    No `chromium-cli` here, so installed Playwright + Chromium in a scratch
+    npm project (outside the repo's own deps) and drove a real `streamlit run`
+    process with it. All 7 steps passed against the live artifact: uncited
+    edit blocked with the exact message, valid edit approved and locked with
+    the download button, blank reason blocked, real reason rejected and shown.
+    Zero console errors. Screenshots are in this session's scratch dir, not
+    committed (verification, not a deliverable).
+  - Updated `docs/PHASES.md`'s T1-01/T1-02/T1-03/T1-04 rows and
+    `docs/PROGRESS.md` with the full write-up; spec status table on the
+    `docs-collateral` worktree updated to match.
+- **A file-sync surprise, worth remembering if this happens again:** the first
+  `cp` of the new artifact into place got silently reverted back to the old
+  committed bytes within about a minute — `git status` was clean before and
+  after, no reset/checkout in the reflog, so something *outside git* (very
+  likely whatever keeps this repo's working directory in sync across the
+  relay's multiple accounts/machines per CLAUDE.md) raced the write. Recovery:
+  re-copy and `git add`/commit *immediately* — a file matching a git commit
+  has stayed stable since. If a generated file looks reverted for no reason,
+  check `md5`/`git status` before assuming you imagined the write; don't
+  leave a meaningful generated artifact sitting uncommitted for long here.
+- Next action: no scoped Tier 1 work remains. Redeploying the Cloud Run UI to
+  serve the regenerated artifact is the user's own action (standing
+  preference: they run deploys). If asked to keep going, check
+  `docs/FUTURE_ENHANCEMENTS.md` for a Tier 2 candidate.
+- Watch out:
+  - The Firestore emulator installed this session lives in this checkout's
+    `google-cloud-sdk/` directory, not committed to git (it's a huge binary
+    install) — a different checkout needs to reinstall it via `gcloud
+    components install cloud-firestore-emulator` before it can re-run
+    `tests/test_firestore_emulator.py` for real; it skips cleanly without it.
+  - The scratch Playwright/npm project used for the browser smoke test is
+    entirely outside the repo (in the session scratchpad) — nothing was added
+    to `package.json`/`pyproject.toml`. Recreate it the same way if this needs
+    re-running: `npm install playwright@1.62.1 && npx playwright install
+    chromium` in a throwaway directory, then drive `http://localhost:8501`.
+
+---
+
 ## 2026-08-30 ~00:15 ET — Claude Code (T1-03 + T1-04: Tier 1 is now fully Done)
 - Last commit: `06f32d2` Implement T1-03 (edit-before-approve, required
   rejection reason) and T1-04 (cross-run hazard identity and history)

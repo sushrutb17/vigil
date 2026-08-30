@@ -1229,6 +1229,81 @@ second `run_id` a third time left `observation_count` at 2 — the literal T1-04
   has run the full `docs/TIER1_ENHANCEMENTS_SPEC.md` section 13 sign-off
   checklist as one pass end to end.
 
+## 2026-08-30 (cont'd) — Closed every remaining "not yet verified live" gap: real
+artifact regeneration, real precedent citations, real cross-run history, real browser
+
+The previous entry closed T1-03/T1-04 functionally but left the honest gaps every
+Tier 1 entry had been carrying forward: `artifacts/demo_run.json` still unregenerated,
+T1-02's precedent-evidence acceptance criterion only proven by synthetic fixtures,
+T1-04's history only shown via a same-process double call, and the "manual human-gate
+smoke" done through `AppTest` rather than a literal browser. Asked directly to close
+these out, and this session actually had what was needed: `GOOGLE_API_KEY` in `.env`,
+the real dataset already downloaded, and network access.
+
+**What actually ran, twice, for real:**
+```
+GOOGLE_CLOUD_PROJECT=vigil-live-demo FIRESTORE_EMULATOR_HOST=localhost:8080 \
+  uv run python -m pipeline.run_batch --dataset data/raw/default/train/0000.parquet \
+  --slice 5000 --live --firestore --output artifacts/demo_run.json
+```
+Both runs went through the real Analyst/Coordinator/Critic agents against Gemini
+(clustering itself stays free/local -- TF-IDF + SVD + seeded HDBSCAN, no embedding
+API call, guardrail #1 intact) and persisted to a **local Firestore emulator**
+(installed this session via the bundled `google-cloud-sdk`), never a production
+project, so this cost real (small, bounded -- roughly the ~39-call `make artifact`
+figure from earlier handoffs, times two) API spend but touched no shared
+infrastructure.
+
+**Results, inspected directly, not just asserted by a test:**
+- 23 clusters, 4 escalated, **1,328 severe singletons** (T1-01's queue was showing
+  zero on the deployed snapshot until now -- the whole point of that feature).
+- Zero `DEGRADED` briefs, zero unresolved citations, largest brief 4,571 characters.
+- **Two of the four escalated clusters carry real precedent evidence** ("Cabin and
+  flight deck odor..." with 6 precedent ACNs, "Airborne and Terminal Area Traffic
+  Conflicts" with 9) -- T1-02 section 7.4's "at least one real cluster with precedent
+  evidence" criterion, previously only exercised by hand-built fixtures in
+  `tests/test_evidence.py`.
+- Every one of the 23 clusters carries `hazard_history` with **2 real, chronologically
+  ordered observations** from the two actual live runs -- not a mocked retry, not a
+  same-process double call.
+- `artifacts/demo_run.json`: **79,053 -> 2,506,268 bytes**, schema v1 -> v2. Loads and
+  renders in 0.43s in a headless `AppTest` pass -- still practical.
+
+**A file-sync race worth recording.** The first attempt to copy the new artifact into
+place got silently reverted back to the old committed bytes by something outside
+git within about a minute (this repo's working directory lives in a path that's
+almost certainly under some external sync mechanism, consistent with CLAUDE.md's own
+description of the repo being shared in relay across multiple accounts/machines).
+`git status` before the revert was clean and showed no reset/checkout in the reflog --
+the working-tree file was overwritten out from under git without git's involvement.
+Recovery was immediate: re-copy, `git add`, commit right away. A committed file
+matching HEAD has stayed stable since; the lesson is to commit generated artifacts
+promptly rather than trusting a `cp` to survive uncommitted for long in this checkout.
+
+**The manual human-gate smoke test happened in an actual browser**, closing the one
+substitution every Tier 1 entry had made so far. No `chromium-cli` in this
+environment, so: started the real Streamlit server (`streamlit run
+ui/streamlit_app.py`), installed Playwright + Chromium in a scratch npm project (not
+added to the repo's own dependencies), and drove it with a small script against
+`http://localhost:8501`. All 7 steps passed against the newly regenerated live
+artifact, zero browser console errors:
+1. Editor seeded with the original live-drafted draft (2,980 chars).
+2. Added an uncited line, clicked Approve -> blocked, exact validation message shown,
+   editor stayed open.
+3. Fixed the edit to a valid cited wording change, clicked Approve -> terminal state,
+   approved-download button appeared, editor gone.
+4. Opened a second escalated cluster, clicked Reject with a blank reason -> blocked.
+5. Typed a real reason, clicked Reject -> terminal state, the exact reason text
+   rendered on the page.
+
+Screenshots exist in the session's scratch directory as evidence but were not
+committed to the repo -- verification artifacts, not a deliverable.
+
+**Still genuinely open:** nobody has redeployed the Cloud Run UI to serve this
+regenerated artifact -- that's the user's own action per standing preference, not a
+gap in the work itself. Tier 1 is now Done with every acceptance criterion backed by
+a real run, not a synthetic stand-in.
+
 <!-- Add a new dated section above this line each time we make a decision, ship a
      feature, or change status. Keep entries short: what changed, what's verified,
      what's still open. -->
