@@ -136,7 +136,8 @@ The Coordinator's three sub-agents run concurrently with independent failure
 isolation. You can watch that work instead of taking our word for it:
 
 ```bash
-python -m pipeline.run_batch --demo --live --fail-agent risk
+set -a; source .env; set +a        # --live needs GOOGLE_API_KEY
+uv run python -m pipeline.run_batch --demo --live --fail-agent risk
 ```
 
 One dead sub-agent yields a `DEGRADED` brief whose lost section falls back to a

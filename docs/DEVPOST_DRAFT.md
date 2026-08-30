@@ -105,7 +105,7 @@ error isolation, because that makes 2-of-3 partial-failure tolerance
 straightforward: one dead sub-agent yields a brief stamped `DEGRADED`, two dead
 sub-agents fall back to a deterministic template, and the cluster is never
 dropped. You can watch this rather than take our word for it:
-`python -m pipeline.run_batch --demo --live --fail-agent risk`.
+`uv run python -m pipeline.run_batch --demo --live --fail-agent risk`.
 
 ## Self-improvement (offline, extractor only)
 
