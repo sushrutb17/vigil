@@ -19,16 +19,22 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import asdict
+from collections.abc import Collection
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
 import streamlit as st
 
-from agents.critic import extract_cited_acns
+from agents.critic import extract_cited_acns, strip_uncited_claims
 from pipeline.risk import FrozenRiskPolicy
 from pipeline.run_batch import build_cluster_evidence, demo_reports, draft_brief, run_triage
-from pipeline.store import MemoryStore, TriageStore
+from pipeline.store import (
+    MAX_REJECTION_REASON_LENGTH,
+    MemoryStore,
+    RejectionReasonError,
+    TriageStore,
+)
 
 ARTIFACT_PATH = Path("artifacts/demo_run.json")
 
@@ -50,17 +56,66 @@ def _get_store() -> TriageStore:
     return MemoryStore()
 
 
-def _cluster_payload(cluster: dict[str, Any]) -> dict[str, Any]:
+@dataclass(frozen=True, slots=True)
+class ApprovalOutcome:
+    """Result of re-running the citation gate against a human-edited brief.
+
+    A pure, browser-free decision so approval logic is testable without
+    Streamlit (T1-03, docs/TIER1_ENHANCEMENTS_SPEC.md 8.3).
+    """
+
+    approved: bool
+    value: dict[str, Any] | None
+    removed_claims: tuple[str, ...] = ()
+    fabricated_citations: tuple[str, ...] = ()
+
+
+def evaluate_approval(
+    original_draft: str, edited_brief: str, allowed_acns: Collection[str]
+) -> ApprovalOutcome:
+    """Re-run the deterministic citation gate against human-edited text before
+    any approval is persisted. Guardrail #4 makes no exception for a human
+    edit: an uncited line or an ACN outside the allow-list blocks approval
+    outright, rather than silently storing a gate-stripped version the human
+    never saw (8.1.3-4).
+    """
+    result = strip_uncited_claims(edited_brief, allowed_acns=allowed_acns)
+    if not result.passed:
+        return ApprovalOutcome(
+            approved=False,
+            value=None,
+            removed_claims=result.removed_claims,
+            fabricated_citations=result.fabricated_citations,
+        )
+    return ApprovalOutcome(
+        approved=True,
+        value={"brief_draft": original_draft, "brief_approved": result.cleaned_brief},
+    )
+
+
+def build_rejection_value(
+    cluster: dict[str, Any], reason: str, edited_brief: str
+) -> dict[str, Any]:
+    """Pure construction of a ``record_rejection`` payload (5.4) -- testable
+    without a browser. Reason validation itself lives in ``pipeline.store``,
+    shared by both store implementations rather than duplicated here.
+    """
     return {
-        "cluster_id": cluster["id"],
-        "name": cluster["name"],
-        "risk": cluster["risk"],
-        "escalated": cluster["escalated"],
-        "new_this_run": cluster["new_this_run"],
+        "reason": reason,
+        "brief_draft": str(cluster["brief"]),
+        "brief_at_rejection": edited_brief,
         "member_acns": list(cluster["members"]),
-        "facets": cluster["facets"],
-        "brief": str(cluster["brief"]),
     }
+
+
+def evidence_acns(cluster: dict[str, Any]) -> set[str]:
+    """The citation-gate allow-list for an edited brief: every ACN this
+    cluster has evidence for -- members plus any precedent already cited in
+    the original draft (8.1.3). Falls back to plain membership for an
+    artifact with no evidence field (legacy or pre-T1-02).
+    """
+    acns = {item["acn"] for item in cluster.get("evidence", [])}
+    return acns or set(cluster["members"])
 
 
 def _clusters_from_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -81,6 +136,10 @@ def _clusters_from_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]
             # pre-evidence v2 objects alike) -- the evidence selector simply
             # has nothing to show for those, rather than failing to load.
             "evidence": entry.get("evidence", []),
+            # Absent on artifacts written before T1-04 -- the history panel
+            # renders "First observed run" in that case, same as a cluster
+            # with exactly one observation.
+            "hazard_history": entry.get("hazard_history", []),
         }
         for entry in entries
     ]
@@ -129,10 +188,11 @@ def _load_artifact() -> tuple[list[dict[str, Any]], list[dict[str, Any]], int, s
     policy = FrozenRiskPolicy.from_path(Path("config/frozen.yaml"))
     reports = demo_reports()
     by_acn = {report.acn: report for report in reports}
-    assessments, severe = run_triage(reports, policy=policy, store=MemoryStore())
+    assessments, severe, hazards = run_triage(reports, policy=policy, store=MemoryStore())
     clusters = []
     for assessment in assessments:
         brief = draft_brief(assessment)
+        hazard = hazards.get(assessment.cluster_id)
         clusters.append(
             {
                 "id": assessment.cluster_id,
@@ -145,6 +205,9 @@ def _load_artifact() -> tuple[list[dict[str, Any]], list[dict[str, Any]], int, s
                 "brief": brief,
                 "evidence": build_cluster_evidence(
                     assessment.cluster_id, assessment, brief, by_acn
+                ),
+                "hazard_history": (
+                    [asdict(observation) for observation in hazard.history] if hazard else []
                 ),
             }
         )
@@ -222,6 +285,36 @@ def _render_cluster_evidence(cluster: dict[str, Any]) -> None:
     _render_evidence_panel(choices[selected_label])
 
 
+def _render_hazard_history(cluster: dict[str, Any]) -> None:
+    """T1-04 cross-run hazard identity: observation date, member count, and
+    frozen risk total across runs. Purely descriptive -- it renders whatever
+    ``run_batch`` already recorded and never recomputes or alters the risk
+    score shown elsewhere on this cluster (docs/TIER1_ENHANCEMENTS_SPEC.md
+    9.2.3, 9.2.7). The "NEW THIS RUN" badge stays driven by the escalation
+    ledger alone; hazard identity does not touch it (9.2.6).
+    """
+    history = sorted(cluster.get("hazard_history", []), key=lambda obs: obs["run_at"])
+    if not history:
+        return
+    if len(history) < 2:
+        st.caption("First observed run")
+        return
+    counts = " → ".join(str(observation["member_count"]) for observation in history)
+    st.write(f"**Seen in {len(history)} runs** · {counts} reports")
+    st.line_chart([observation["member_count"] for observation in history], height=100)
+    with st.expander("Observation history"):
+        st.table(
+            [
+                {
+                    "Run": observation["run_at"],
+                    "Members": observation["member_count"],
+                    "Risk total": observation["risk_total"],
+                }
+                for observation in history
+            ]
+        )
+
+
 def _render_cluster_queue(clusters: list[dict[str, Any]]) -> None:
     choices = _sorted_choices(clusters)
     selected_label = st.sidebar.selectbox("Hazard clusters", list(choices))
@@ -245,34 +338,91 @@ def _render_cluster_queue(clusters: list[dict[str, Any]]) -> None:
         st.write("**Source reports:**", f"{len(cluster['members'])} ACNs")
         st.json(cluster["facets"], expanded=False)
         _render_cluster_evidence(cluster)
+        _render_hazard_history(cluster)
     with right:
         st.subheader("Investigator draft")
-        st.code(str(cluster["brief"]), language="markdown")
         store = _get_store()
         state_key = f"decision-{cluster['id']}"
-        if state_key not in st.session_state:
-            st.session_state[state_key] = "Pending human review"
-        controls = st.columns(2)
-        if controls[0].button("Approve draft", type="primary"):
-            store.set_cluster_status(cluster["id"], "approved")
-            st.session_state[state_key] = "Approved by human — persisted to store"
-        if controls[1].button("Reject draft"):
-            store.set_cluster_status(cluster["id"], "rejected")
-            # Written to rejections/ as a negative few-shot example (ARCHITECTURE.md
-            # "State & memory") so a future Analyst prompt-revision pass can be
-            # told what a human already rejected, not just what got escalated.
-            store.put_rejection(cluster["id"], _cluster_payload(cluster))
-            st.session_state[state_key] = (
-                "Rejected by human — persisted as a negative example for future Analyst prompts"
+        editor_key = f"editor-{cluster['id']}"
+        reason_key = f"reason-{cluster['id']}"
+        decision = st.session_state.get(state_key)
+
+        if decision is None:
+            # key=editor_key (not tied to the evidence selection above) is what
+            # preserves the human's in-progress edit across reruns triggered by
+            # switching the evidence ACN or any other widget on this page
+            # (8.1.2).
+            edited = st.text_area(
+                "Edit draft (Markdown)",
+                value=str(cluster["brief"]),
+                key=editor_key,
+                height=280,
             )
-        st.info(st.session_state[state_key])
-        st.download_button(
-            "Download brief (Markdown)",
-            data=str(cluster["brief"]),
-            file_name=f"vigil-brief-{cluster['id']}.md",
-            mime="text/markdown",
-            help="The human carries the draft onward. VIGIL never sends or files anything.",
-        )
+            reason = st.text_area(
+                "Rejection reason (required to reject)",
+                key=reason_key,
+                max_chars=MAX_REJECTION_REASON_LENGTH,
+                help=(
+                    "Trimmed before persisting. Blank or over "
+                    f"{MAX_REJECTION_REASON_LENGTH} characters cannot be submitted (8.1.7)."
+                ),
+            )
+            controls = st.columns(2)
+            if controls[0].button("Approve draft", type="primary"):
+                outcome = evaluate_approval(str(cluster["brief"]), edited, evidence_acns(cluster))
+                if outcome.approved:
+                    store.record_approval(cluster["id"], outcome.value)
+                    st.session_state[state_key] = {
+                        "status": "approved",
+                        "brief_approved": outcome.value["brief_approved"],
+                    }
+                    st.rerun()
+                else:
+                    if outcome.removed_claims:
+                        st.error(
+                            "Blocked: every factual line must cite an ACN. Uncited line(s):\n"
+                            + "\n".join(f"- {line}" for line in outcome.removed_claims)
+                        )
+                    if outcome.fabricated_citations:
+                        st.error(
+                            "Blocked: cites an ACN outside this cluster's evidence: "
+                            + ", ".join(outcome.fabricated_citations)
+                        )
+            if controls[1].button("Reject draft"):
+                try:
+                    store.record_rejection(
+                        cluster["id"], build_rejection_value(cluster, reason, edited)
+                    )
+                except RejectionReasonError as exc:
+                    st.error(str(exc))
+                else:
+                    # Written to rejections/ as a negative few-shot example
+                    # (ARCHITECTURE.md "State & memory") so a future Analyst
+                    # prompt-revision pass can be told what a human already
+                    # rejected, not just what got escalated.
+                    st.session_state[state_key] = {"status": "rejected", "reason": reason.strip()}
+                    st.rerun()
+        elif decision["status"] == "approved":
+            # Terminal: the editor is gone, replaced by the immutable
+            # approved text (8.1.6, 8.1.10).
+            st.code(decision["brief_approved"], language="markdown")
+            st.success("Approved by human — persisted to store. The editor is now locked.")
+            st.download_button(
+                "Download approved brief (Markdown)",
+                data=decision["brief_approved"],
+                file_name=f"vigil-brief-{cluster['id']}.md",
+                mime="text/markdown",
+                help=(
+                    "The human carries the approved text onward. "
+                    "VIGIL never sends or files anything."
+                ),
+            )
+        else:
+            st.code(str(cluster["brief"]), language="markdown")
+            st.warning(
+                "Rejected by human — persisted as a negative example for future Analyst "
+                f"prompts. Reason: {decision['reason']}"
+            )
 
 
 def _render_singleton_queue(singletons: list[dict[str, Any]]) -> None:

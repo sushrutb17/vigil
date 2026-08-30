@@ -1128,6 +1128,107 @@ loader's legacy-list fallback means the deployed UI keeps working as-is
 (0 singletons shown) until someone runs `make artifact` for real. T1-02/T1-03
 (full)/T1-04 remain open, per `docs/PHASES.md` Phase 8.
 
+## 2026-08-29/30 — T1-03 (edit-before-approve, required rejection reason) and
+T1-04 (cross-run hazard identity and history), implemented and tested end to end
+
+Continuing the Tier 1 roadmap (`docs/TIER1_ENHANCEMENTS_SPEC.md` sections 8-9)
+after T1-01 and T1-02. Both remaining items landed in one pass since T1-04's
+`record_hazard_observation` call sits directly in `run_triage`'s existing
+per-cluster loop, next to T1-03's store methods.
+
+**T1-03.** `pipeline/store.py` gained `record_approval`/`record_rejection` on
+both `MemoryStore` and `FirestoreStore`, replacing the UI's old two-call
+`set_cluster_status` + `put_rejection` sequence (kept, unused by the UI now,
+per the spec's explicit "don't mix a compatibility removal into Tier 1").
+Reason validation (`_clean_rejection_reason`: blank-after-trim or over 2,000
+chars raises `RejectionReasonError`) is shared by both store implementations
+so neither can drift from the other's notion of valid. `FirestoreStore.
+record_rejection` writes the status flip and the rejection record in one
+`batch()` — atomic by construction, since a batch's `set()` calls only queue
+writes locally and nothing reaches Firestore until `commit()`.
+`ui/streamlit_app.py` replaced the always-visible read-only brief + unconditional
+download with an editable `st.text_area` (state preserved across reruns via a
+stable widget key independent of the evidence selector), a required rejection-
+reason box, and two new pure functions — `evaluate_approval` (re-runs the
+existing deterministic citation gate from `agents/critic.py` against the edited
+text; guardrail #4 makes no exception for a human edit) and
+`build_rejection_value` — so the decision logic is unit-testable without a
+browser. Approval and rejection are now terminal per Streamlit session: once
+decided, the editor and buttons are gone, replaced by the immutable outcome and
+(for approval only) a download button whose bytes are `brief_approved`, not the
+original draft.
+
+**T1-04.** New `HazardObservation`/`HazardRecord` dataclasses
+(`pipeline/models.py`). New `pipeline.store.match_hazard` (pure: Jaccard
+similarity strictly greater than 0.6 to qualify, ties broken by
+lexicographically smallest `hazard_id`) plus `record_hazard_observation` on
+both stores. `MemoryStore`'s version is a straightforward dict; `FirestoreStore`'s
+runs the match-and-write inside one `@firestore.transactional` function so a
+retried transaction re-reads current state instead of replaying stale writes.
+`run_triage` now generates (or accepts) a `run_id`/`run_at` pair once via new
+`new_run_context()` and records one hazard observation per non-noise
+assessment — escalated or not, matching the spec's "every non-noise cluster
+gets a hazard ID" requirement — returning a third dict (`hazard_id ->
+HazardRecord`) that `main()` threads into the same artifact's `build_
+artifact_payload` call so the hazard observation and the artifact it ends up
+embedded in always key off the same run. `ui/streamlit_app.py` renders a
+"Seen in N runs · 12 → 19 → 31 reports" summary, a member-count sparkline via
+`st.line_chart`, and an expandable observation table once a cluster has 2+
+observations; a single-observation cluster renders "First observed run"
+instead, per spec.
+
+**Verification.** `tests/test_store_decisions.py` (extended, +9 tests: approval/
+rejection field preservation, the 2,000-char boundary, trimming, a mocked-batch
+proof that a `commit()` failure leaves neither the status flip nor the
+rejection record applied), new `tests/test_ui_decisions.py` (11 tests: the
+pure helpers plus a full Streamlit `AppTest` pass — seeded editor, blocked
+uncited/fabricated-citation approval with the editor staying open, a valid
+edit becoming terminal with the right download label, blocked blank-reason
+rejection, and a valid rejection showing its reason), new
+`tests/test_hazard_history.py` (15 tests: matching threshold/tie-break rules,
+idempotent same-`run_id` replay, cumulative-union prevention, chronological
+history ordering under out-of-order inserts, noise/below-threshold hazard-ID
+behavior, risk-score isolation, per-`MemoryStore`-instance isolation, and two
+`AppTest` views). Full suite: **116/116 pass, ruff clean.**
+
+**The Firestore emulator run the spec calls mandatory (section 12) actually
+happened, not just the offline-mockable parts.** Installed the emulator via
+the bundled `google-cloud-sdk` (`gcloud components install
+cloud-firestore-emulator` — this session had network access), ran it on
+`localhost:8080`, and added `tests/test_firestore_emulator.py` (skipped unless
+`FIRESTORE_EMULATOR_HOST` is set, so the default suite needs neither Java nor
+the emulator): 6 tests against a *live* Firestore, all passing —
+`record_rejection`'s atomic batch write and its merge-not-overwrite semantics,
+an invalid reason leaving genuinely nothing written, `record_approval`'s
+merge, and — the two that a mock cannot prove — a hazard observation written
+by one `FirestoreStore` instance visible to a second instance pointed at the
+same project (real cross-process persistence), and replaying the same
+`run_id` from a second instance producing zero duplicate observation
+documents (real transactional idempotency, not a mocked retry). Also ran
+`run_triage` twice by hand against one shared `MemoryStore` with the real
+6-report demo fixture, overlapping members, two different `run_id`s: exactly
+one hazard, two ordered observations after the second run, and repeating the
+second `run_id` a third time left `observation_count` at 2 — the literal T1-04
+9.6 acceptance scenario, reproduced live, not just asserted in a unit test.
+
+**Not done / honest gaps:**
+- The "manual human-gate smoke" row in section 12's verification matrix (edit
+  a cited line, try an uncited line, approve, reject with a reason) was
+  exercised through the automated `AppTest` suite above rather than a literal
+  hand-driven browser session — same substitution T1-01/T1-02 made for their
+  own live-UI proofs, and for the same reason: no way to drive a real browser
+  against a locally running `streamlit run` in this environment. The AppTest
+  scripts click the actual buttons and read the actual rendered validation
+  text, so the behavior proven is the same; only the input device differs.
+- `artifacts/demo_run.json` is still unregenerated (schema v1, no evidence or
+  hazard data) — same live-credentials gap every prior Tier 1 entry has
+  flagged. A fresh `--live` run would also be the first real demonstration of
+  T1-04's cross-run history against genuine weekly-cadence data rather than a
+  same-process double-run.
+- Tier 1 is now feature-complete (T1-01 through T1-04 all ✅ Done), but nobody
+  has run the full `docs/TIER1_ENHANCEMENTS_SPEC.md` section 13 sign-off
+  checklist as one pass end to end.
+
 <!-- Add a new dated section above this line each time we make a decision, ship a
      feature, or change status. Keep entries short: what changed, what's verified,
      what's still open. -->

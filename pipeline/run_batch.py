@@ -20,6 +20,7 @@ from pipeline.models import (
     ASRSReport,
     ClusterAssessment,
     EvidenceRecord,
+    HazardRecord,
     JsonDict,
     RiskScore,
     SevereSingleton,
@@ -33,6 +34,19 @@ from pipeline.store import MemoryStore, TriageStore
 NARRATIVE_EXCERPT_LIMIT = 500
 
 AssessClusterFn = Callable[[str, Sequence[ASRSReport], RiskScore], ClusterAssessment]
+
+
+def new_run_context() -> tuple[str, str]:
+    """Generate the (run_id, run_at) pair once per logical run.
+
+    Hazard observations (T1-04) must key off the same ``run_id`` as the
+    artifact they end up embedded in, so callers that need both generate this
+    once and thread it through rather than letting each stage mint its own
+    (T1-04, docs/TIER1_ENHANCEMENTS_SPEC.md 9.4).
+    """
+    run_id = f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}-{uuid4().hex[:6]}"
+    run_at = datetime.now(UTC).isoformat()
+    return run_id, run_at
 
 
 def cluster_facets(reports: Sequence[ASRSReport]) -> dict[str, tuple[str, ...]]:
@@ -84,9 +98,10 @@ def run_batch(
     Thin wrapper over ``run_triage`` for callers that only need cluster
     assessments (the pre-T1-01 public contract; every existing caller and test
     keeps working unchanged). Use ``run_triage`` directly when the severe
-    singleton queue is also needed, to avoid clustering the batch twice.
+    singleton queue or hazard history is also needed, to avoid clustering the
+    batch twice.
     """
-    assessments, _singletons = run_triage(
+    assessments, _singletons, _hazards = run_triage(
         reports, policy=policy, store=store, assess_cluster=assess_cluster
     )
     return assessments
@@ -98,9 +113,12 @@ def run_triage(
     policy: FrozenRiskPolicy,
     store: TriageStore,
     assess_cluster: AssessClusterFn = _assess_cluster,
-) -> tuple[list[ClusterAssessment], list[SevereSingleton]]:
+    run_id: str | None = None,
+    run_at: str | None = None,
+) -> tuple[list[ClusterAssessment], list[SevereSingleton], dict[str, HazardRecord]]:
     """Ingest, deterministically cluster, score, and persist a batch; separately
-    flag HDBSCAN noise reports against the frozen severe vocabulary.
+    flag HDBSCAN noise reports against the frozen severe vocabulary and match
+    every non-noise cluster to a persistent cross-run hazard identity.
 
     ``assess_cluster`` defaults to a deterministic structured-field stand-in so
     the no-credentials demo path is unaffected. A live run passes
@@ -112,7 +130,18 @@ def run_triage(
     codebase) means a live run never spends a real Analyst call naming a bucket
     of unrelated one-off reports that never surfaces in the UI as a cluster
     anyway (T1-01, docs/TIER1_ENHANCEMENTS_SPEC.md).
+
+    ``run_id``/``run_at`` default to a freshly generated pair when omitted (the
+    pre-T1-04 callers that don't care about hazard history), but a caller that
+    also builds an artifact from the same run must generate them once via
+    ``new_run_context()`` and pass the same pair to both, or the hazard
+    observation would be keyed to a different run than the artifact it ends up
+    embedded in (T1-04, 9.4).
     """
+    if run_id is None or run_at is None:
+        generated_id, generated_at = new_run_context()
+        run_id = run_id or generated_id
+        run_at = run_at or generated_at
     for report in reports:
         store.put_report(report.acn, asdict(report))
     clusters = cluster_reports(
@@ -151,7 +180,22 @@ def run_triage(
         )
         assessments.append(assessment)
     ranked = sorted(assessments, key=lambda assessment: assessment.risk.total, reverse=True)
-    return ranked, find_severe_singletons(noise_reports, policy)
+    # Every non-noise cluster gets a hazard identity, escalated or not (9.2.1);
+    # noise reports never reach this loop since `assessments` excludes them by
+    # construction above. Purely descriptive bookkeeping -- it runs after
+    # `risk` was already computed and never feeds back into it (9.2.7).
+    hazards = {
+        assessment.cluster_id: store.record_hazard_observation(
+            cluster_id=assessment.cluster_id,
+            display_name=assessment.name,
+            member_acns=frozenset(assessment.member_acns),
+            risk_total=assessment.risk.total,
+            run_id=run_id,
+            run_at=run_at,
+        )
+        for assessment in ranked
+    }
+    return ranked, find_severe_singletons(noise_reports, policy), hazards
 
 
 def _build_evidence(report: ASRSReport) -> EvidenceRecord:
@@ -241,6 +285,7 @@ def build_artifact_payload(
     assessments: Sequence[ClusterAssessment],
     briefs: Mapping[str, str],
     singletons: Sequence[SevereSingleton],
+    hazards: Mapping[str, HazardRecord] | None = None,
     *,
     run_id: str | None = None,
     run_at: str | None = None,
@@ -248,13 +293,18 @@ def build_artifact_payload(
     """Assemble the schema-v2 artifact object written by ``--output``/``make artifact``.
 
     ``run_id``/``run_at`` are generated once here by default; tests pass
-    explicit values instead so output is reproducible (T1-01 5.1).
+    explicit values instead so output is reproducible (T1-01 5.1). ``hazards``
+    is optional and keyed by ``cluster_id`` -- callers that don't pass one
+    simply get no ``hazard_id``/``hazard_history`` on their cluster entries
+    (T1-04, 9.4), which keeps every pre-T1-04 caller of this function working
+    unchanged.
     """
-    if run_id is None:
-        run_id = f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}-{uuid4().hex[:6]}"
-    if run_at is None:
-        run_at = datetime.now(UTC).isoformat()
+    if run_id is None or run_at is None:
+        generated_id, generated_at = new_run_context()
+        run_id = run_id or generated_id
+        run_at = run_at or generated_at
     by_acn = {report.acn: report for report in reports}
+    hazards = hazards or {}
     return {
         "schema_version": 2,
         "run": {
@@ -271,10 +321,22 @@ def build_artifact_payload(
                 "evidence": build_cluster_evidence(
                     assessment.cluster_id, assessment, briefs[assessment.cluster_id], by_acn
                 ),
+                **_hazard_payload(hazards.get(assessment.cluster_id)),
             }
             for assessment in assessments
         ],
         "severe_singletons": [asdict(singleton) for singleton in singletons],
+    }
+
+
+def _hazard_payload(record: HazardRecord | None) -> JsonDict:
+    """``{}`` when no hazard record is available, so a cluster entry simply
+    has no ``hazard_id``/``hazard_history`` keys rather than nulls."""
+    if record is None:
+        return {}
+    return {
+        "hazard_id": record.hazard_id,
+        "hazard_history": [asdict(observation) for observation in record.history],
     }
 
 
@@ -440,8 +502,17 @@ def main() -> None:
             "store": store,
             "fail_agents": frozenset(args.fail_agent),
         }
-    assessments, singletons = run_triage(
-        reports, policy=policy, store=store, assess_cluster=assess_cluster
+    # Generated once and threaded through both calls below: the hazard
+    # observation and the artifact it ends up embedded in must key off the
+    # same run_id (T1-04, docs/TIER1_ENHANCEMENTS_SPEC.md 9.4).
+    run_id, run_at = new_run_context()
+    assessments, singletons, hazards = run_triage(
+        reports,
+        policy=policy,
+        store=store,
+        assess_cluster=assess_cluster,
+        run_id=run_id,
+        run_at=run_at,
     )
     by_acn = {report.acn: report for report in reports}
     briefs: dict[str, str] = {}
@@ -453,7 +524,9 @@ def main() -> None:
         # reaches the store the UI and the audit trail read from.
         store.put_cluster_brief(assessment.cluster_id, brief)
         briefs[assessment.cluster_id] = brief
-    artifact = build_artifact_payload(reports, assessments, briefs, singletons)
+    artifact = build_artifact_payload(
+        reports, assessments, briefs, singletons, hazards, run_id=run_id, run_at=run_at
+    )
     for cluster_entry in artifact["clusters"]:
         # Only the ACN list goes to the store; narrative excerpts stay in the
         # artifact/reports/{acn} documents so a cluster document never

@@ -86,7 +86,7 @@ def test_a_severe_non_noise_report_does_not_enter_the_singleton_queue() -> None:
     reports = demo_reports()
     store = MemoryStore()
 
-    assessments, singletons = run_triage(reports, policy=POLICY, store=store)
+    assessments, singletons, _hazards = run_triage(reports, policy=POLICY, store=store)
 
     assert assessments
     assert singletons == []
@@ -131,7 +131,7 @@ def test_a_fake_live_assessor_that_raises_if_called_is_not_called_for_noise() ->
     ]
     store = MemoryStore()
 
-    assessments, singletons = run_triage(
+    assessments, singletons, _hazards = run_triage(
         reports, policy=POLICY, store=store, assess_cluster=_raising_assessor
     )
 
@@ -244,7 +244,7 @@ def test_a_deterministic_fixture_with_a_cluster_and_two_noise_reports_shows_one_
     reports = [*demo_reports(), severe_noise, non_severe_noise]
     store = MemoryStore()
 
-    assessments, singletons = run_triage(reports, policy=POLICY, store=store)
+    assessments, singletons, _hazards = run_triage(reports, policy=POLICY, store=store)
 
     assert assessments, "the demo fixture's cluster must still form"
     assert [s.acn for s in singletons] == ["9000001"]

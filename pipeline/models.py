@@ -88,6 +88,39 @@ class SevereSingleton:
 
 
 @dataclass(frozen=True, slots=True)
+class HazardObservation:
+    """One run's data point in a hazard's cross-run history (T1-04).
+
+    Descriptive only: never fed back into ``score_cluster`` or the frozen
+    risk score (docs/TIER1_ENHANCEMENTS_SPEC.md 5.5, 9.2.7).
+    """
+
+    run_id: str
+    run_at: str
+    cluster_id: str
+    member_count: int
+    risk_total: float
+
+
+@dataclass(frozen=True, slots=True)
+class HazardRecord:
+    """A persistent cross-run hazard identity and its observation history.
+
+    ``latest_member_acns`` is the newest matching member set, not an
+    ever-growing union -- see docs/TIER1_ENHANCEMENTS_SPEC.md 5.5. ``history``
+    is sorted ascending by ``run_at``.
+    """
+
+    hazard_id: str
+    display_name: str
+    latest_member_acns: tuple[str, ...]
+    first_seen_at: str
+    last_seen_at: str
+    observation_count: int
+    history: tuple[HazardObservation, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class ClusterAssessment:
     cluster_id: str
     name: str
