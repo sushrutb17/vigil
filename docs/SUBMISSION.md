@@ -59,8 +59,8 @@ Category: **Taskmaster.** Entrant: solo individual (also eligible for the Indivi
 - [x] Judges' testing access works from a clean machine/incognito — verified 2026-08-30 from a clean unauthenticated browser context: HTTP 200 and the full page renders
 
 ## Bonus points (Stage Three, up to +1.0)
-- [ ] +0.2 — public build-story post (dev.to / Medium / YouTube) including the required line that it was created for entering this hackathon
-- [ ] +0.2 — social post on LinkedIn or X with **#AllThingsAgentic** hashtag
+- [ ] +0.2 — public build-story post (dev.to / Medium / YouTube) including the required line that it was created for entering this hackathon — **draft ready: [`BONUS_POSTS.md`](BONUS_POSTS.md) Post 1.** Verify the exact required wording against the live rules page before posting; +0.2 rides on one sentence.
+- [ ] +0.2 — social post on LinkedIn or X with **#AllThingsAgentic** hashtag — **draft ready: [`BONUS_POSTS.md`](BONUS_POSTS.md) Post 2** (LinkedIn version + X thread variant).
 - [ ] +0.2 (stretch) — integrate one more Google model (Gemma) for a real sub-task (rules allow +0.2 per extra model up to 0.6 — deliberate decision to stop at Gemma; see rubric section above)
 
 ## After submitting
