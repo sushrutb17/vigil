@@ -18,8 +18,9 @@ from `/brag` defaults and the reason for each.
 ## Source Material
 
 - Project root: `/Users/sush/Google All things Agent`
-- Primary files read: `docs/DEMO_SCRIPT.md` (narration + shot list — **the
-  creative contract**), `docs/VIDEO_RUNBOOK.md` (capture procedure),
+- Primary files read: `brag-output/narration/*.txt` (recording scripts),
+  `docs/DEMO_SCRIPT.md` (factual basis + shot list — **the creative contract**),
+  `docs/VIDEO_RUNBOOK.md` (capture procedure),
   `docs/BONUS_POSTS.md` (verified phrasings), `docs/architecture.png` (visual
   identity), `artifacts/demo_run.json` + `eval/runs/*.json` (every number)
 - Product name: **VIGIL**
@@ -52,7 +53,7 @@ from `/brag` defaults and the reason for each.
 
 **Do not put a brief-factual-coverage number on screen — it was never run.**
 **Do not claim "we caught our own agent cheating"** — that never happened and
-`eval/runs/` is committed, so a judge can check. `DEMO_SCRIPT.md` § 2:45–3:20
+`eval/runs/` is committed, so a judge can check. `DEMO_SCRIPT.md` § 2:43–3:18
 carries the honest substitute (the fabricated-ACN story) if a "we caught
 ourselves" beat is wanted.
 
@@ -106,7 +107,7 @@ source and is not used.)
 1. **The friction** — 28s — hook line + ASRS scale caption over dimmed scrolling narratives
 2. **Architecture** — 30s — graph assembles in ~7 stage reveals, colour carries permission semantics
 3. **Live execution + GCP** — 85s — **real capture, unbroken, uncut**
-4. **Failure tolerance** — 20s — **real capture** + three restrained overlay callouts
+4. **Failure tolerance** — 20s — **real capture** + three sequential overlay callouts
 5. **The numbers** — 35s — Critic gate 1.000/1.000, then the 0.837 tripwire failure at equal weight
 6. **Close** — 34s — thesis, five prohibitions, stack, URLs, wordmark, silence
 
@@ -124,9 +125,10 @@ Constraints on these two scenes:
 - **No cuts, no speed ramps, no transitions inside scene 3.** Retakes are fine;
   edits within the take are not.
 - **No SFX over either scene.**
-- Scene 4 may carry overlay callouts; they must not obscure terminal text.
+- Scene 4 may carry overlay callouts; only one appears at a time in the reserved
+  right-side lane, and none may obscure terminal text.
 - Scene 3 must **visibly** contain all four Stage One proofs:
-  - [ ] Gemini 3.5+ via the Gemini API (job output / `agent_log`)
+  - [ ] Gemini 3.7 Flash via the Gemini API (job output / `agent_log`)
   - [ ] Google ADK as the agent framework
   - [ ] Cloud Run **and** Firestore (service, job, documents appearing)
   - [ ] **~3s on the Cloud Scheduler trigger config** — the background-workflow
@@ -136,18 +138,18 @@ Constraints on these two scenes:
 
 ## Narration
 
-The voiceover script is **`docs/DEMO_SCRIPT.md`, verbatim**. It has been
-fact-checked and corrected once already; **do not paraphrase, tighten, or
-"improve" it during composition.** Its accuracy notes are binding — in particular
-scene 2 must not say ingest agents extract and dedupe, and must not say the
-analyst scores risk.
+The recording source is **the six `.txt` files in `brag-output/narration/`,
+verbatim**. `docs/DEMO_SCRIPT.md` owns the factual basis and capture choreography.
+Do not paraphrase, tighten, or "improve" while recording. In particular, scene 2
+must not say ingest agents extract and dedupe, and must not say the analyst
+scores risk.
 
 The formerly underspecified live segment is now locked: scene 3 has a 173-word
 script (~122 wpm) plus an 85-second continuous-take shot map, and scene 4 has a
 41-word script (~123 wpm). These replace the old scene-3 bullet-only narration
 and the rushed 63-word scene-4 take.
 
-The bridge line in § 1:00–2:25 (job runs the 6-report fixture; dashboard serves the
+The bridge line in § 0:58–2:23 (job runs the 6-report fixture; dashboard serves the
 committed 5,000-report snapshot) is **mandatory** — without it the segment reads as
 incoherent to a judge watching 6 reports go in and 23 clusters come out.
 

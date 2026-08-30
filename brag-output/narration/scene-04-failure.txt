@@ -1,0 +1,1 @@
+I killed the Risk agent at its real call site. The brief stays alive: the other agents finish, Risk falls back to a cited deterministic line, and DEGRADED is stamped on the result. A real API outage follows this same path.

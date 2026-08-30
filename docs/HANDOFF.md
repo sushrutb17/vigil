@@ -18,6 +18,32 @@ Entry format:
 
 ---
 
+## 2026-08-30 17:16 ET — Codex (scene-4 overlay + split narration pack)
+- Last commit: this commit — `Split video narration and fix scene four overlay`
+- Finished:
+  - Removed scene 4's opaque red placeholder and changed its three callouts from
+    a cumulative stack to a mutually exclusive sequence in one reserved
+    right-side lane. Default cue windows are 1.6–6.4s, 6.8–10.9s, and
+    11.3–18.7s; retime them to the real capture before the final render.
+  - Rendered `brag-output/scenes/s4-callouts.mov` locally as a 20-second,
+    1920×1080 ProRes overlay with `yuva444p12le` alpha. Render products are
+    intentionally gitignored; the source and render command are committed.
+  - Added `brag-output/narration/`: six recording-ready scripts, one per scene,
+    with exact word counts, target take lengths, and the `seg1.wav`–`seg6.wav`
+    output map. Scene 3 remains 173 words; scene 4 remains 41 words.
+  - Corrected `docs/DEMO_SCRIPT.md` to the composition's actual 3:52 timing map
+    and made the narration files the single recording source of truth.
+  - Strict HyperFrames 0.8.20 gate passes across all six scenes with zero lint,
+    runtime, layout, or contrast findings and 41/41 contrast checks. Focused
+    scene-4 checks at all three callout beats also pass with zero findings.
+- Next action: record `seg4-failure.mp4` with the terminal framed left of the
+  reserved callout lane, then retime the three callouts to the observed banner,
+  `DEGRADED`, and cited-fallback moments. Record the six narration `.txt` files
+  separately and copy the approved WAVs into `composition/assets/vo/`.
+- Watch out: the committed source is ready, but the scene-4 capture asset is
+  still the blank placeholder video. The transparent MOV is an editor overlay,
+  not a standalone visible scene, and must be placed above the real capture.
+
 ## 2026-08-30 17:00 ET — Codex (video P0 production pass, user-authorized main-checkout override)
 - Last commit: this commit — `Lock P0 video narration and visible stack proof`
 - Finished:

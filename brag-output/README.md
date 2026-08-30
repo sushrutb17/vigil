@@ -14,6 +14,7 @@ composition/          the HyperFrames project
   assets/capture/       ← REAL SCREEN CAPTURE GOES HERE (placeholders now)
   assets/vo/            ← REAL VOICEOVER GOES HERE (silent placeholders now)
 scenes/               per-scene MP4s — the editor-timeline deliverable
+narration/            six recording-ready scripts + duration/filename guide
 ```
 
 ## Two ways to finish it — pick one
@@ -34,7 +35,8 @@ Both stay in sync automatically — the per-scene hosts in `scene-hosts/` only
 
 `/brag`'s creative law is *"Short. 15–25 seconds."* The reason to override it is
 external: this is a compliance-scored submission judged at **≤4:00**, and the
-narration is already written and fact-checked in `docs/DEMO_SCRIPT.md`. The full
+narration is already written and fact-checked in `narration/` and
+`docs/DEMO_SCRIPT.md`. The full
 list of deviations and their justifications is the table at the top of
 `brag-plan.md` — read it before changing anything.
 
@@ -45,21 +47,22 @@ live execution**, so scenes 3 and 4 embed real screen capture, played untouched.
 ## Current state
 
 `npx hyperframes check` **passes** — 0 lint, 0 runtime, 0 layout, 0 motion errors,
-41/41 WCAG AA contrast. Scenes 1, 2, 5, 6 are finished. Scenes 3 and 4 are
-correctly-timed placeholders waiting on footage.
+41/41 WCAG AA contrast. Scenes 1, 2, 5, 6 are finished. The scene-3 placeholder
+and the scene-4 capture slot are correctly timed and waiting on footage; scene
+4's transparent sequential-callout overlay is ready.
 
-**P0 narration is locked.** `docs/DEMO_SCRIPT.md` now contains the exact
-173-word scene-3 script with an 85-second continuous-take shot map, plus a
-shortened 41-word scene-4 script. Scene 2 visibly names Google ADK and Gemini 3.7
-Flash. The remaining P0 inputs are the entrant's authenticated screen captures
-and human voice recordings.
+**P0 narration is locked and split for recording.** `narration/` contains six
+plain-text scripts mapped to `seg1.wav` through `seg6.wav`. Scene 3 remains a
+173-word, 85-second continuous take; scene 4 uses the shortened 41-word script.
+Scene 2 visibly names Google ADK and Gemini 3.7 Flash. The remaining P0 inputs
+are the entrant's authenticated screen captures and human voice recordings.
 
 | # | Scene | Window | Source | State |
 |---|---|---|---|---|
 | 1 | The friction | 0:00–0:28 | composed | ✅ done |
 | 2 | Architecture | 0:28–0:58 | composed | ✅ done |
 | 3 | Live execution + GCP | 0:58–2:23 | **real capture** | ⏳ needs footage |
-| 4 | Failure tolerance | 2:23–2:43 | **real capture** | ⏳ needs footage |
+| 4 | Failure tolerance | 2:23–2:43 | **real capture + sequential overlay** | ⏳ needs footage; overlay ready |
 | 5 | The numbers | 2:43–3:18 | composed | ✅ done |
 | 6 | Close | 3:18–3:52 | composed | ✅ done |
 
@@ -113,9 +116,10 @@ ffprobe -v error -show_entries format=duration -of csv=p=0 composition/assets/ca
 
 **No TTS.** The hackathon Q&A advised against AI voiceover.
 
-Script is `docs/DEMO_SCRIPT.md`, **verbatim** — it has been corrected once already
-for claims that had drifted false. Do not paraphrase or tighten it while
-recording. The fixture-vs-snapshot bridge line in § 1:00–2:25 is mandatory.
+Use [`narration/README.md`](narration/README.md) and record each `.txt` file
+**verbatim**. The scripts have been fact-checked, paced to the corresponding
+render, and split so a fluffed line costs one scene instead of four minutes. The
+fixture-vs-snapshot bridge in scene 3 is mandatory.
 
 Six separate files, so a fluffed line costs one segment rather than four minutes:
 
@@ -126,9 +130,9 @@ composition/assets/vo/seg1.wav … seg6.wav
 ### 3. Swap the placeholders out
 
 1. Delete the `#s3-ph` block and its two timeline lines in `compositions/s3-live.html`.
-2. Delete the `#s4-ph` block and its two timeline lines in `compositions/s4-failure.html`,
-   and **retime the three callouts** to the moments they actually occur — the
-   current times are guesses, not measurements.
+2. In `compositions/s4-failure.html`, **retime the three sequential callouts** to
+   the moments they actually occur. Their 20-second defaults never overlap, but
+   the real recording determines the final cue points.
 3. Retime `index.html`: set each slot / `<video>` / `<audio>` `data-duration` to
    the real asset length, shift every later `data-start` by the delta, and update
    the root `data-duration`.
@@ -153,8 +157,8 @@ npx hyperframes render -c scene-hosts/s6.html --quality high --output ../scenes/
 ```
 
 Scene 4's callouts render separately **with an alpha channel**, so they lay over
-your terminal capture instead of being baked in — do this *after* recording, once
-the placeholder is deleted and the callouts are retimed to the real footage
+your terminal capture instead of being baked in. They now replace one another in
+a single right-side lane; render after recording and retiming
 (`scene-hosts/s4-overlay.html` documents both steps):
 
 ```bash

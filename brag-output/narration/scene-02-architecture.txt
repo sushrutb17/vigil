@@ -1,0 +1,7 @@
+VIGIL starts with public NASA reports. Ingest and clustering are deterministic: embeddings plus seeded HDBSCAN, with no language-model call in that stage.
+
+A Google ADK analyst running Gemini 3.7 Flash names the hazard, while code calculates risk against frozen, read-only thresholds.
+
+Above the gate, three Gemini agents work in parallel. A critic removes uncited claims, then a deterministic backstop runs again.
+
+The final gate is human approval. VIGIL drafts; it never actions.

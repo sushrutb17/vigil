@@ -1,0 +1,9 @@
+This job normally starts from a weekly Cloud Scheduler trigger. For the demo, I'm starting the same Cloud Run batch job by hand.
+
+The live run uses Gemini 3.7 Flash through Google ADK. Each agent call records its agent name, model, token count, and latency in Firestore.
+
+Here is the Cloud Run execution, and here are the Firestore agent-log documents written by that run. This is the weekly Scheduler configuration that normally starts it unattended.
+
+That job just ran the full agent graph in the cloud on a small fixture — that's the live proof. The dashboard serves a committed snapshot of a real five-thousand-report run, so it loads instantly for you without a model call per page view, and without depending on my API quota surviving the judging window. Same pipeline, same code, bigger slice.
+
+Now the deployed dashboard. This cluster is new this run. Every brief claim carries a source ACN, and an uncited edit is blocked. Approval is the only exit: drafts, never decisions. The approved Markdown packet downloads here.

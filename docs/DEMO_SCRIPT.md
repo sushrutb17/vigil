@@ -10,12 +10,12 @@ Judging targets: problem + value prop stated, architecture explained, **unedited
 
 | Segment | Window | Length |
 |---|---|---|
-| 1 · The friction (BYOF) | 0:00–0:30 | 30s |
-| 2 · Architecture | 0:30–1:00 | 30s |
-| 3 · Live execution + GCP proof | 1:00–2:25 | **85s — one unbroken take** |
-| 4 · Failure tolerance | 2:25–2:45 | 20s |
-| 5 · The numbers | 2:45–3:20 | 35s |
-| 6 · Close | 3:20–4:00 | 40s |
+| 1 · The friction | 0:00–0:28 | 28s |
+| 2 · Architecture | 0:28–0:58 | 30s |
+| 3 · Live execution + GCP proof | 0:58–2:23 | **85s — one unbroken take** |
+| 4 · Failure tolerance | 2:23–2:43 | 20s |
+| 5 · The numbers | 2:43–3:18 | 35s |
+| 6 · Close | 3:18–3:52 | 34s |
 
 **Record as six segments and stitch**, keeping segment 3 unbroken. A single
 flawless 4-minute take is not worth chasing; the "unedited" requirement applies
@@ -23,18 +23,35 @@ to the live execution, not to the whole video.
 
 Commands to paste are in [`VIDEO_RUNBOOK.md`](VIDEO_RUNBOOK.md) §2.
 
-## 0:00–0:30 — The friction (BYOF)
-"I manage operations for an airline flight-ops department. Safety reports arrive faster than analysts can read them. Each one looks minor and gets filed. The pattern across forty of them — same component, same aircraft type, same flight phase — surfaces months later in a quarterly review. That gap is a risk window. I built VIGIL to close it."
-On screen: scrolling raw ASRS narratives (public NASA data) + caption: "NASA ASRS: 100,000+ reports/yr — each screened by two human analysts within 3 working days." Optional half-sentence of VO: "NASA's own program pays two analysts to read every single one."
+## Recording source of truth
 
-## 0:30–1:00 — Architecture (30 seconds, diagram on screen)
-Deterministic ingest reads NASA's own coded fields → deterministic clustering, **no LLM in that stage at all** → a Google ADK analyst running Gemini 3.7 Flash names the hazard and writes the statement, while *code* — not the agent — computes the risk score → above a frozen threshold, a Google ADK coordinator fans out three Gemini agents in parallel → a critic strips uncited claims, and then a deterministic gate runs again regardless → **a human approves. The system never actions anything itself.**
+Record the six plain-text files in
+[`brag-output/narration/`](../brag-output/narration/README.md). They are split by
+scene, paced to the rendered picture, and map directly to `seg1.wav` through
+`seg6.wav`. This document owns the factual basis, capture choreography, and
+supporting detail; do not combine its optional reference lines with the final
+recording scripts.
+
+## 0:00–0:28 — The friction
+
+Final narration: [`scene-01-friction.txt`](../brag-output/narration/scene-01-friction.txt).
+
+On screen: scrolling raw ASRS narratives (public NASA data) + caption: "NASA ASRS: 100,000+ reports/yr — each screened by two human analysts within 3 working days."
+
+## 0:28–0:58 — Architecture (30 seconds, diagram on screen)
+
+Final narration: [`scene-02-architecture.txt`](../brag-output/narration/scene-02-architecture.txt).
+
+The spoken sequence follows the diagram exactly: deterministic ingest and
+clustering → Google ADK analyst on Gemini 3.7 Flash → code-computed risk against
+frozen thresholds → three-agent parallel fan-out → critic → deterministic
+citation backstop → terminal human approval.
 
 *(Accuracy note for the VO: do not say "ingest agents extract and dedupe" — those stages were cut, ingest is plain code. Do not say the analyst scores risk; it doesn't. Both were in the old script and both contradict the diagram on screen.)*
 
-## 1:00–2:25 — Live execution (the unedited core — one continuous take)
+## 0:58–2:23 — Live execution (the unedited core — one continuous take)
 
-This is the final word-for-word narration. At 173 words it lands around 122 words
+This mirrors `brag-output/narration/scene-03-live.txt`. At 173 words it lands around 122 words
 per minute, leaving room to switch views and let the proof sit on screen:
 
 > "This job normally starts from a weekly Cloud Scheduler trigger. For the demo,
@@ -75,7 +92,7 @@ The video must literally show **Google ADK** and **Gemini 3.7 Flash**, not only
 generic "agent" or "model" labels. Scene 2 establishes both visibly; this live
 segment supplies the execution receipts.
 
-## 2:25–2:45 — Failure tolerance (20s)
+## 2:23–2:43 — Failure tolerance (20s)
 
 Terminal, one command, ~11s of runtime:
 
@@ -91,7 +108,7 @@ It prints nothing between the fault-injection banner and the final JSON —
 - `## Risk Assessment` carrying its **cited deterministic fallback**, while
   `## Recommended Brief` is still model-authored
 
-This shortened final narration is 41 words (about 123 words per minute), leaving
+This mirrors `brag-output/narration/scene-04-failure.txt`. The shortened narration is 41 words (about 123 words per minute), leaving
 the output readable instead of forcing the old 63-word take to roughly 189 words
 per minute:
 
@@ -99,7 +116,12 @@ per minute:
 > agents finish, Risk falls back to a cited deterministic line, and DEGRADED is
 > stamped on the result. A real API outage follows this same path."
 
-## 2:45–3:20 — The numbers (35s — more content than time; cut in this order)
+## 2:43–3:18 — The numbers (35s)
+
+Final narration: [`scene-05-results.txt`](../brag-output/narration/scene-05-results.txt).
+It covers the citation gate and the failed clustering guard—the two results that
+the rendered scene actually shows. The material below is supporting evidence and
+cut rationale, not additional narration to record.
 
 **This section holds three results and room for roughly two.** Priority, highest
 value first: (1) the Critic gate, (2) the noise-fraction failure, (3) the
@@ -175,8 +197,10 @@ stronger one, because it is about the safety mechanism rather than the model:
 > disappears. A fabricated one survives carrying false authority. We found it by
 > reading the brief, not from any log. The gate now validates provenance."
 
-## 3:20–4:00 — Close
-"The twist isn't what these agents can do — it's what they're structurally forbidden from doing. Frozen risk thresholds — a safety system must not quietly retune its own severity bar. Human approval on every output. Built solo in 11 days on Gemini, ADK, Cloud Run, and Firestore. The pattern generalizes to every safety-critical intake queue: rail, medical devices, energy. VIGIL turns a report backlog into a ranked hazard list with an evidence-cited brief — hours, not months."
+## 3:18–3:52 — Close
+
+Final narration: [`scene-06-close.txt`](../brag-output/narration/scene-06-close.txt).
+Finish the voice by roughly 3:49 so the VIGIL end card holds in silence.
 
 ## Recording notes
 - 1080p, terminal font ≥16pt, dark theme; phone-mounted or OBS screen capture; script the voiceover, don't improvise

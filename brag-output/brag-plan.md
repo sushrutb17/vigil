@@ -150,8 +150,8 @@ the diagram is the stronger and more specific source.)
   runtime, cue presets only analyse the first 25s, and a bed under four minutes of
   continuous technical narration competes with the numbers a judge must hear.
   This is `/brag`'s documented "intentionally silent" path, not a missing asset.
-- **Narration:** the voiceover script is `docs/DEMO_SCRIPT.md` verbatim — it is
-  fact-checked and must not be paraphrased during composition. **Human voice,
+- **Narration:** the six scripts in `brag-output/narration/` are verbatim and
+  fact-checked against `docs/DEMO_SCRIPT.md`. **Human voice,
   recorded by the entrant — no TTS** (settled 2026-08-30; the hackathon Q&A
   advised against AI voiceover). Six files, one per segment. Screen capture is
   recorded silent and narration is laid over it, so a fluffed line never costs a
@@ -181,7 +181,7 @@ Near-black. Raw ASRS narrative text scrolls slowly behind at ~12% opacity, real
 public report text. The hook line holds centre for its full reading floor, then
 gives way to the ASRS scale caption in mono: `NASA ASRS — 100,000+ reports/yr ·
 each screened by two human analysts within 3 working days`. VO is
-`DEMO_SCRIPT.md` § 0:00–0:30.
+`narration/scene-01-friction.txt`.
 Sequential/interaction: none — one line, one caption, one long hold. `deadpan`-adjacent restraint on purpose.
 Audio intent: near-silence. The scroll is visual, not audible.
 Audio-coupled idea: none.
@@ -196,7 +196,8 @@ Analyst · Gemini 3.7 Flash** (blue) with risk scoring held deliberately *outsid
 it in green → the gold
 `total ≥ 0.60?` diamond → the three-agent fan-out → Critic + the deterministic
 strip that always runs last → the red terminal `HUMAN APPROVAL`. `config/frozen.yaml`
-enters in red with its read-only arrow. VO is `DEMO_SCRIPT.md` § 0:30–1:00, whose
+enters in red with its read-only arrow. VO is
+`narration/scene-02-architecture.txt`, whose
 accuracy note must be honoured: **do not** say ingest agents extract and dedupe,
 **do not** say the analyst scores risk.
 Sequential/interaction: yes — ~7 stage reveals, each held ≥1.2s settled, colour carrying the permission semantics before the VO names them.
@@ -215,8 +216,9 @@ uncited claim, and **Approve** → Markdown packet downloads.
 The bridge line from `DEMO_SCRIPT.md` (job runs the 6-report fixture, dashboard
 serves the committed 5,000-report snapshot) **must** be spoken between the console
 and the dashboard or the segment reads as incoherent.
-The final 173-word narration and continuous-take shot windows are locked in
-`docs/DEMO_SCRIPT.md`; do not improvise this segment.
+The final 173-word narration is `narration/scene-03-live.txt`; its
+continuous-take shot windows are locked in `docs/DEMO_SCRIPT.md`. Do not
+improvise this segment.
 Sequential/interaction: real, not simulated. This is the whole point of the segment.
 Audio intent: captured audio or clean silence. Narration over the top.
 Audio-coupled idea: **none — prohibited.** No SFX may touch this scene.
@@ -226,11 +228,12 @@ Transition mood: hard cut → Scene 4
 ### Scene 4 — Failure tolerance — 20s — `2:23–2:43` — **REAL CAPTURE**
 Embedded capture of `uv run python -m pipeline.run_batch --demo --live
 --fail-agent risk` (~11s, silent by design between the banner and the JSON — it is
-not hung). A restrained overlay marks the three things to look at without
-obscuring the terminal: the fault-injection banner, `DEGRADED`, and
+not hung). A restrained overlay marks the three things to look at **one at a
+time in a reserved right-side lane**, without obscuring the terminal: the
+fault-injection banner, `DEGRADED`, and
 `## Risk Assessment` on its cited deterministic fallback while
 `## Recommended Brief` stays model-authored.
-Use the final shortened 41-word narration in `docs/DEMO_SCRIPT.md`; the previous
+Use `narration/scene-04-failure.txt`; the previous
 63-word version outran a readable 20-second technical demonstration.
 Sequential/interaction: real execution; overlay callouts are the only added layer.
 Audio intent: unchanged from capture.
