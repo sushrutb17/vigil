@@ -18,6 +18,98 @@ Entry format:
 
 ---
 
+## 2026-08-30 ~00:15 ET — Claude Code (T1-03 + T1-04: Tier 1 is now fully Done)
+- Last commit: `06f32d2` Implement T1-03 (edit-before-approve, required
+  rejection reason) and T1-04 (cross-run hazard identity and history)
+- Finished:
+  - **T1-03 and T1-04 both done** per `docs/TIER1_ENHANCEMENTS_SPEC.md`
+    sections 8-9. Status tables updated in both places: here in
+    `docs/PHASES.md` Phase 8, and in the `vigil-docs` `docs-collateral`
+    worktree (commits `95b18ed`/`79d4d06`/`f7d667a` -- the last of those
+    also checks off every box in the spec's section-13 global definition of
+    done, since all four Tier 1 items are now ✅ Done). Full write-up in
+    `docs/PROGRESS.md`'s newest (bottom) entry.
+  - **T1-03**: `pipeline.store.record_approval`/`record_rejection` on both
+    stores, shared rejection-reason validation, one atomic Firestore batch
+    for the rejection write. `ui/streamlit_app.py` now has a real editable
+    brief, a required rejection reason, and pure `evaluate_approval`/
+    `build_rejection_value` helpers -- `evaluate_approval` re-runs the
+    existing `agents.critic.strip_uncited_claims` gate against the human's
+    edit, so a human cannot approve an uncited or fabricated-citation
+    rewrite. Terminal per session; the download button only appears after
+    approval and serves `brief_approved`, never the original draft.
+  - **T1-04**: `HazardObservation`/`HazardRecord` models, pure
+    `pipeline.store.match_hazard` (Jaccard >0.6, deterministic tiebreak),
+    `record_hazard_observation` on both stores (Firestore's runs inside one
+    `@firestore.transactional` function). `run_triage` now returns a third
+    value -- `dict[cluster_id, HazardRecord]` -- generating/accepting a
+    `run_id`/`run_at` pair via new `new_run_context()` that `main()` threads
+    into the same `build_artifact_payload` call. **This changed
+    `run_triage`'s return signature from a 2-tuple to a 3-tuple** -- every
+    call site (in `run_batch()`, `main()`, `ui/streamlit_app.py`'s fixture
+    branch, and four spots in `tests/test_severe_singletons.py`) was updated
+    in this commit. If you're grepping for `run_triage(` and only find two
+    return values somewhere, that call site is stale, not a second valid
+    contract.
+  - **The section-12 Firestore emulator run happened for real, not just
+    mocked.** This session had network access, so installed the emulator via
+    the bundled `google-cloud-sdk` (`./google-cloud-sdk/bin/gcloud components
+    install cloud-firestore-emulator`; needs a JRE, `java -version` confirmed
+    one present), ran it on `localhost:8080`, and added
+    `tests/test_firestore_emulator.py` -- 6 tests, `pytest.mark.skipif`'d
+    unless `FIRESTORE_EMULATOR_HOST` is set, so the default suite still needs
+    neither Java nor a running emulator. All 6 passed against the live
+    backend: atomic rejection writes, merge-not-overwrite approval, a hazard
+    observation written by one `FirestoreStore` instance read back by a
+    second instance on the same project (real cross-process persistence, the
+    thing a mock cannot prove), and a same-`run_id` replay from a second
+    instance producing zero duplicate observation documents. Stopped the
+    emulator (`pkill -f cloud-firestore-emulator`) once verified -- it is not
+    left running.
+  - Also hand-ran the literal T1-04 9.6 acceptance scenario live (not just as
+    a unit test): `run_triage` called twice against one shared `MemoryStore`
+    with the real 6-report demo fixture and two different `run_id`s produced
+    one hazard with two ordered observations; repeating the second `run_id`
+    a third time left `observation_count` at 2.
+  - 36 new tests across `tests/test_store_decisions.py` (+9),
+    `tests/test_ui_decisions.py` (11, new), `tests/test_hazard_history.py`
+    (15, new), `tests/test_firestore_emulator.py` (6, new, emulator-gated).
+    Full suite **116/116 pass** (122 with the emulator running), ruff clean.
+    `make demo` still runs; a real `--demo --output ...` pipeline run was
+    inspected and shows `hazard_id`/`hazard_history` on every cluster entry.
+- **Not done / honest gaps:**
+  - The "manual human-gate smoke" row in section 12's verification matrix was
+    exercised through the automated `AppTest` suite rather than a literal
+    hand-driven browser session -- same substitution the T1-01/T1-02 sessions
+    made for their own live-UI proofs, for the same reason (no way to drive a
+    real browser against `streamlit run` in this environment). The AppTest
+    scripts click the actual buttons and read the actual rendered validation
+    text, so behaviorally it's the same proof; only the input device differs.
+  - `artifacts/demo_run.json` is still unregenerated (schema v1, no evidence
+    or hazard data) -- the same live-Gemini-credentials gap every prior
+    Tier 1 entry has flagged. T1-04's cross-run history has only been shown
+    against a same-process double-run, not genuine weekly-cadence live data.
+  - Tier 1 is now feature-complete, but nobody has run the full
+    `docs/TIER1_ENHANCEMENTS_SPEC.md` section-13 sign-off checklist as one
+    single pass end to end against a live artifact.
+- Next action: with Tier 1 done, there's no more scoped work queued in
+  `docs/PHASES.md`. If asked to continue: (a) regenerate `artifacts/demo_run.
+  json` with a real `--live` run once credentials are available -- this
+  would finally close the "not yet demonstrated live" gap on T1-01/T1-02/
+  T1-04 all at once, or (b) check `docs/FUTURE_ENHANCEMENTS.md` for a Tier 2
+  item if the user wants to keep going past Tier 1.
+- Watch out:
+  - `run_triage`'s new 3-tuple return is a breaking change to its public
+    contract -- see above. `run_batch()` (the pre-T1-01 2-value wrapper) is
+    unaffected and still returns just `list[ClusterAssessment]`.
+  - The Firestore emulator is NOT installed by default in a fresh clone --
+    it was installed into this checkout's `google-cloud-sdk/` directory this
+    session. A future session on a different machine/checkout needs to
+    reinstall it (or just accept the 6 emulator tests skipping) before it can
+    re-verify the live-Firestore proof.
+
+---
+
 ## 2026-08-29 ~18:00 ET — Claude Code (T1-02 ACN evidence drill-down)
 - Last commit: `0660daa` Implement T1-02: ACN evidence drill-down
 - Finished:
