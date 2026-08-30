@@ -39,6 +39,30 @@ pattern a human has already seen.
 A human approves or rejects every brief. The system never sends, files, or
 actions anything.
 
+What the analyst actually gets, beyond the brief:
+
+- **Nothing severe is silently dropped.** Clustering leaves most reports
+  unclustered, and a report being statistically lonely says nothing about whether
+  it is dangerous. Any report whose NASA-coded outcome matches the frozen severe
+  vocabulary is surfaced in its own review queue even when it belongs to no
+  pattern — **1,328 of them in the committed run**. It is deliberately given no
+  name, no risk score and no brief, because one report is not a pattern and
+  dressing it up as one would be the exact overreach this system avoids.
+- **Every citation is one click from its source.** An ACN in a brief opens the
+  underlying report: the narrative excerpt, flight phase, component, anomaly
+  labels and outcome. Precedent citations — reports the agent pulled in from
+  *outside* the cluster — are labelled as such, so a reviewer can see which
+  evidence is the pattern and which is the argument for it.
+- **The reviewer can edit before approving**, and the citation gate re-runs on
+  the edited text. A human adding an uncited sentence is blocked exactly like the
+  model would be. Rejection requires a written reason, which is stored as a
+  negative example rather than discarded.
+- **Hazards have an identity across runs.** Because the job runs weekly, the same
+  hazard is matched between runs by member-set overlap and carries its own
+  history — "seen in 3 runs · 12 → 19 → 31 reports". A pattern that is growing
+  looks different from one that is stable, which is the entire reason to run this
+  on a schedule instead of once.
+
 ## The Twist
 
 **Every other demo shows what the agents can do. VIGIL's headline feature is what
@@ -64,6 +88,17 @@ it is mechanical, and it is enforced by tests that fail if you remove it:
   holdout is consulted only at the promote/discard decision, after the candidate
   prompt text is already fixed — so nothing it returns can shape a revision. A
   guard failure short-circuits before it is read at all.
+- **The gate has no exception for a human.** The reviewer can edit a draft before
+  approving it — and the same deterministic citation gate runs against their
+  edit. Add an uncited sentence and approval is refused, with the offending claim
+  named. The privileged reviewer is the most plausible person to smuggle an
+  unsourced claim into a safety document, so they are the last person who should
+  get an exemption.
+- **Evidence is checkable, not just cited.** A citation you cannot resolve is a
+  claim of provenance rather than provenance. Every ACN in a brief opens the
+  source report in one click, and artifact construction *fails* if a brief cites
+  an ACN the run has no report for — so a citation the UI cannot resolve can
+  never reach a reviewer in the first place.
 - **The human gate is terminal.** There is no auto-approve flag, and adding one
   is listed as a prohibited change in the repo's own guardrails.
 
@@ -148,6 +183,16 @@ We did not tune the parameters to get under our own guard. Doing that hours
 before a deadline, with no held-out check on the clustering stage, is the exact
 behaviour the rest of this system exists to prevent, and we would rather submit a
 measured failure than an unmeasured success.
+
+What we did instead was change what happens to the reports the clustering fails
+on. An 84% noise fraction is only a safety problem if noise means *discarded* —
+so it no longer does. Every unclustered report is still checked against the
+frozen severe-outcome vocabulary, and the 1,328 that match are routed to their
+own analyst queue with their evidence attached. That does not make the clustering
+better and we are not presenting it as though it does. It makes the clustering's
+failure non-silent, which is a different and more honest claim: the metric stays
+bad, and a report the algorithm could not place is now seen by a human instead of
+falling through the floor.
 
 ## Challenges, findings and learnings
 
