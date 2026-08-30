@@ -22,11 +22,42 @@ Deterministic ingest reads NASA's own coded fields → deterministic clustering,
 ## 2:45–3:25 — The numbers (our unfair advantage)
 
 **Only say numbers that exist.** Everything below is in `eval/runs/*.json`, which
-is committed, so a judge can check it. Cluster purity vs `Events_Anomaly`, brief
-factual coverage vs expert synopses, and the Critic catch rate were **never run**
-— they are still ⬜ in PHASES.md. Do not put them on screen.
+is committed, so a judge can check it.
 
-Show the extractor improvement table (README → Measured results):
+**Updated 2026-08-30 — cluster purity and the Critic catch rate have since been
+run** (`make eval-offline` → `eval/runs/20260829T192117Z-offline.json`), so the
+old instruction to keep them off screen no longer applies. One is the strongest
+number in the project and one is the weakest; show both, in that order.
+
+**Brief factual coverage vs expert synopses was still never run.** Do not put a
+coverage number on screen.
+
+Show the Critic gate result first — it is the one predeclared metric that came
+back clean, and it is the numeric proof of the Twist:
+
+| Critic gate (400 seeded claims, 200 trials) | Result |
+|---|---|
+| Uncited / fabricated-ACN catch rate | **1.000** |
+| Legitimate-claim retention | **1.000** |
+
+Retention is the load-bearing half of that pair — a gate that simply deleted
+every claim would also score a perfect catch rate. Say so out loud; it is the
+difference between a measurement and a number.
+
+Then the clustering result, which is bad and is being shown anyway:
+
+| Clustering vs `Events_Anomaly` (4,998 reports) | Result |
+|---|---|
+| Purity | 0.301 (majority-class baseline 0.219) |
+| Adjusted Rand | 0.0018 |
+| Noise fraction | **0.837 — exceeds our own declared 0.40 guard** |
+
+> "We predeclared a tripwire at 0.40 noise. We hit 0.837 and we are showing you
+> the failure instead of retuning the parameters until it passed. The guard is
+> in `eval/guards.py` and the number is in a committed JSON file — you can check
+> both."
+
+Then show the extractor improvement table (README → Measured results):
 
 | prompt | dev macro-F1 | holdout macro-F1 |
 |---|---|---|

@@ -203,9 +203,12 @@ make deploy
 This deploys two separate Cloud Run surfaces, each with its own least-privilege
 service account rather than the default compute identity:
 
-- **`vigil-ui`** (public, `--allow-unauthenticated`) — holds **no IAM roles at
-  all**. It only serves the committed `artifacts/demo_run.json` snapshot: no
-  model calls, no Firestore, no secrets.
+- **`vigil-ui`** (public, `--allow-unauthenticated`) — holds **`roles/datastore.user`
+  and nothing else**. It serves the committed `artifacts/demo_run.json` snapshot
+  and writes the human analyst's approve/reject decisions to Firestore, so a
+  decision survives the Cloud Run instance that took it. It holds **no
+  `secretAccessor`**, so the public surface cannot reach the Gemini key and
+  cannot make a model call — every model call happens in the batch job below.
 - **`vigil-batch`** (Cloud Run job) — holds `secretmanager.secretAccessor` on a
   dedicated `gemini-api-key` secret (created by `deploy.sh`, never passed as a
   plain env var) and `roles/datastore.user`. Runs the full pipeline with

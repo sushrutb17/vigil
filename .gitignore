@@ -34,6 +34,13 @@ AGENTS.md
 CLAUDE.md
 ac-ai-assistant.md
 
+# Local submission-window burndown (see its own header): a temporary, dependency-
+# ordered view of the last ~26 hours before the Devpost deadline. docs/PHASES.md
+# is the durable status board and the one a reader should be pointed at. Ignored
+# rather than left untracked so a `git add .` on the public push cannot sweep it
+# in by accident. Delete after submitting.
+PROJECT_STATUS.md
+
 # Local harness/editor config, not part of the public repo.
 .agents/
 .claude/
@@ -45,3 +52,8 @@ ac-ai-assistant.md
 # .dockerignore so it never reaches a commit or a build context.
 google-cloud-sdk/
 google-cloud-cli-*.tar.gz
+
+# The `docs-collateral` git worktree, moved out to /Users/sush/vigil-docs on
+# 2026-08-30. While it sat at the repo root, `git add .` did not refuse it — it
+# warned and staged a 581MB embedded-repo gitlink that no clone could resolve.
+vigil-docs/
