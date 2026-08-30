@@ -28,29 +28,52 @@ Commands to paste are in [`VIDEO_RUNBOOK.md`](VIDEO_RUNBOOK.md) §2.
 On screen: scrolling raw ASRS narratives (public NASA data) + caption: "NASA ASRS: 100,000+ reports/yr — each screened by two human analysts within 3 working days." Optional half-sentence of VO: "NASA's own program pays two analysts to read every single one."
 
 ## 0:30–1:00 — Architecture (30 seconds, diagram on screen)
-Deterministic ingest reads NASA's own coded fields → deterministic clustering, **no LLM in that stage at all** → an analyst agent names the hazard and writes the statement, while *code* — not the agent — computes the risk score → above a frozen threshold, a coordinator fans out three agents in parallel → a critic strips uncited claims, and then a deterministic gate runs again regardless → **a human approves. The system never actions anything itself.**
+Deterministic ingest reads NASA's own coded fields → deterministic clustering, **no LLM in that stage at all** → a Google ADK analyst running Gemini 3.7 Flash names the hazard and writes the statement, while *code* — not the agent — computes the risk score → above a frozen threshold, a Google ADK coordinator fans out three Gemini agents in parallel → a critic strips uncited claims, and then a deterministic gate runs again regardless → **a human approves. The system never actions anything itself.**
 
 *(Accuracy note for the VO: do not say "ingest agents extract and dedupe" — those stages were cut, ingest is plain code. Do not say the analyst scores risk; it doesn't. Both were in the old script and both contradict the diagram on screen.)*
 
 ## 1:00–2:25 — Live execution (the unedited core — one continuous take)
-1. Trigger Cloud Run batch job on "this quarter's intake" (terminal visible) — mention it normally fires weekly via Cloud Scheduler; today we trigger it by hand for the camera
-2. Logs stream: extraction counts, cluster formation, one cluster crosses threshold
-3. **Cut to GCP console: Cloud Run dashboard + Firestore documents appearing** (mandatory proof) + ~3s on the Cloud Scheduler trigger config (background-workflow proof)
-4. Streamlit (the .run.app URL visible in the address bar): hazard cluster named, e.g. uncommanded-engine-shutdown pattern on a regional jet type during landing rollout, wearing its **NEW THIS RUN** badge
-5. Open the draft brief: every claim carries an ACN citation; show the critic having stripped an uncited claim
-6. Click **Approve** — the brief downloads as a Markdown packet — and say the line: "approval is the only exit; drafts, never decisions"
 
-**Say this bridge line between steps 3 and 4, or the segment looks incoherent.**
-The job you just triggered processes the 6-report demo fixture; the UI you are
-about to open serves a committed snapshot of a real 5,000-report run. A judge
-watching 6 reports go in and 23 clusters come out will notice. The reason is
-good, so say it:
+This is the final word-for-word narration. At 173 words it lands around 122 words
+per minute, leaving room to switch views and let the proof sit on screen:
 
-> "That job just ran the full agent graph in the cloud on a small fixture —
-> that's the live proof. The dashboard serves a committed snapshot of a real
-> five-thousand-report run, so it loads instantly for you without a model call
-> per page view, and without depending on my API quota surviving the judging
-> window. Same pipeline, same code, bigger slice."
+> "This job normally starts from a weekly Cloud Scheduler trigger. For the demo,
+> I'm starting the same Cloud Run batch job by hand.
+>
+> The live run uses Gemini 3.7 Flash through Google ADK. Each agent call records
+> its agent name, model, token count, and latency in Firestore.
+>
+> Here is the Cloud Run execution, and here are the Firestore agent-log documents
+> written by that run. This is the weekly Scheduler configuration that normally
+> starts it unattended.
+>
+> That job just ran the full agent graph in the cloud on a small fixture — that's
+> the live proof. The dashboard serves a committed snapshot of a real
+> five-thousand-report run, so it loads instantly for you without a model call per
+> page view, and without depending on my API quota surviving the judging window.
+> Same pipeline, same code, bigger slice.
+>
+> Now the deployed dashboard. This cluster is new this run. Every brief claim
+> carries a source ACN, and an uncited edit is blocked. Approval is the only exit:
+> drafts, never decisions. The approved Markdown packet downloads here."
+
+Keep this as one uninterrupted screen recording. Switching terminal/browser tabs
+inside the take is fine; an editorial cut is not.
+
+| Target window | What must remain visibly legible |
+|---|---|
+| 0:00–0:10 | Full `gcloud run jobs execute vigil-batch ... --wait` command, project, and region |
+| 0:10–0:24 | Cloud Run execution/log stream; successful agent activity and model name where available |
+| 0:24–0:36 | Firestore `agent_log` document showing `agent`, `model`, `tokens`, and `latency_ms` |
+| 0:36–0:47 | Cloud Run job/service console with the correct project visible |
+| 0:47–0:55 | Firestore collections/documents written by the run |
+| 0:55–1:00 | Cloud Scheduler trigger configuration, held for at least three settled seconds |
+| 1:00–1:16 | Hosted `.run.app` URL, 5,000-report summary, and `NEW THIS RUN` cluster |
+| 1:16–1:25 | ACN-cited brief, blocked uncited edit, Approve, and Markdown download |
+
+The video must literally show **Google ADK** and **Gemini 3.7 Flash**, not only
+generic "agent" or "model" labels. Scene 2 establishes both visibly; this live
+segment supplies the execution receipts.
 
 ## 2:25–2:45 — Failure tolerance (20s)
 
@@ -68,11 +91,13 @@ It prints nothing between the fault-injection banner and the final JSON —
 - `## Risk Assessment` carrying its **cited deterministic fallback**, while
   `## Recommended Brief` is still model-authored
 
-> "I killed one of the three parallel agents on purpose. Its section fell back
-> to a cited deterministic line, the other two were untouched, and the brief is
-> stamped DEGRADED so nobody mistakes it for a clean run. The failure is
-> injected at the real call site, so it travels the same path a genuine API
-> outage would."
+This shortened final narration is 41 words (about 123 words per minute), leaving
+the output readable instead of forcing the old 63-word take to roughly 189 words
+per minute:
+
+> "I killed the Risk agent at its real call site. The brief stays alive: the other
+> agents finish, Risk falls back to a cited deterministic line, and DEGRADED is
+> stamped on the result. A real API outage follows this same path."
 
 ## 2:45–3:20 — The numbers (35s — more content than time; cut in this order)
 

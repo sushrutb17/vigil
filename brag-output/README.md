@@ -48,6 +48,12 @@ live execution**, so scenes 3 and 4 embed real screen capture, played untouched.
 41/41 WCAG AA contrast. Scenes 1, 2, 5, 6 are finished. Scenes 3 and 4 are
 correctly-timed placeholders waiting on footage.
 
+**P0 narration is locked.** `docs/DEMO_SCRIPT.md` now contains the exact
+173-word scene-3 script with an 85-second continuous-take shot map, plus a
+shortened 41-word scene-4 script. Scene 2 visibly names Google ADK and Gemini 3.7
+Flash. The remaining P0 inputs are the entrant's authenticated screen captures
+and human voice recordings.
+
 | # | Scene | Window | Source | State |
 |---|---|---|---|---|
 | 1 | The friction | 0:00–0:28 | composed | ✅ done |
@@ -83,6 +89,17 @@ Then overwrite:
 ```
 composition/assets/capture/seg3-live.mp4
 composition/assets/capture/seg4-failure.mp4
+```
+
+Encode the final captures with a one-second keyframe interval. The temporary
+placeholder files use sparse keyframes, which HyperFrames correctly warns can
+freeze during seeking:
+
+```bash
+ffmpeg -i seg3-live-source.mp4 -c:v libx264 -r 30 -g 30 -keyint_min 30 \
+  -movflags +faststart -an composition/assets/capture/seg3-live.mp4
+ffmpeg -i seg4-failure-source.mp4 -c:v libx264 -r 30 -g 30 -keyint_min 30 \
+  -movflags +faststart -an composition/assets/capture/seg4-failure.mp4
 ```
 
 Measure them and report the real durations — the VO for these two segments has to

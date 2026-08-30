@@ -34,6 +34,8 @@ from `/brag` defaults and the reason for each.
   - `no LLM call reaches this code`
   - `config/frozen.yaml — thresholds loaded read-only`
   - `HUMAN APPROVAL — terminal`
+  - `Google ADK Analyst`
+  - `Gemini 3.7 Flash`
   - `https://vigil-ui-715230861973.us-central1.run.app`
   - `https://github.com/sushrutb17/vigil`
 
@@ -129,6 +131,8 @@ Constraints on these two scenes:
   - [ ] Cloud Run **and** Firestore (service, job, documents appearing)
   - [ ] **~3s on the Cloud Scheduler trigger config** — the background-workflow
         evidence the Taskmaster category is scored on, and the easiest to forget
+- Scene 2 must literally render `Google ADK Analyst` and `Gemini 3.7 Flash`; the
+  live `agent_log` view in scene 3 then supplies the model execution receipt.
 
 ## Narration
 
@@ -137,6 +141,11 @@ fact-checked and corrected once already; **do not paraphrase, tighten, or
 "improve" it during composition.** Its accuracy notes are binding — in particular
 scene 2 must not say ingest agents extract and dedupe, and must not say the
 analyst scores risk.
+
+The formerly underspecified live segment is now locked: scene 3 has a 173-word
+script (~122 wpm) plus an 85-second continuous-take shot map, and scene 4 has a
+41-word script (~123 wpm). These replace the old scene-3 bullet-only narration
+and the rushed 63-word scene-4 take.
 
 The bridge line in § 1:00–2:25 (job runs the 6-report fixture; dashboard serves the
 committed 5,000-report snapshot) is **mandatory** — without it the segment reads as

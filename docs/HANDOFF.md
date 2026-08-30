@@ -18,6 +18,35 @@ Entry format:
 
 ---
 
+## 2026-08-30 17:00 ET — Codex (video P0 production pass, user-authorized main-checkout override)
+- Last commit: this commit — `Lock P0 video narration and visible stack proof`
+- Finished:
+  - Replaced the underspecified scene-3 bullets with a final 173-word narration
+    and an 85-second continuous-take shot map covering Cloud Run, Firestore
+    `agent_log`, Cloud Scheduler, the hosted dashboard, citations, the human
+    approval gate, and download.
+  - Cut scene 4 from 63 words (~189 wpm) to 41 words (~123 wpm), preserving the
+    real-call-site fault, cited fallback, `DEGRADED` stamp, and genuine-outage
+    equivalence.
+  - Made the mandatory stack literal in the composition: `Google ADK Analyst`
+    and `Gemini 3.7 Flash` now appear in scene 2, with the exact model repeated
+    in the scene-3 capture checklist.
+  - Revalidated HyperFrames 0.8.20: 0 lint, runtime, layout, or motion errors;
+    41/41 contrast checks passed. Rendered and visually inspected the revised
+    30-second architecture scene and refreshed the 3:52 master draft locally.
+  - Documented the one-second keyframe interval required for the replacement
+    captures after HyperFrames flagged sparse keyframes in the temporary blank
+    assets. Generated MP4s remain intentionally gitignored.
+- Next action: record the two authenticated, silent captures exactly to
+  `docs/DEMO_SCRIPT.md`, encode them with the documented 30-frame keyframe
+  interval, then record the six human VO files; these are the only remaining P0
+  inputs and cannot be fabricated safely by an agent.
+- Watch out: `seg3-live.mp4`, `seg4-failure.mp4`, and all six VO WAVs are still
+  correctly timed but blank/silent placeholders. Do not upload the refreshed
+  master draft as the final video. The user explicitly overrode the Codex docs
+  lane for video-production changes in the main checkout; no product code was
+  touched.
+
 ## 2026-08-30 ~13:00 ET — Claude Code (shipped: deployed, pushed public, docs de-drifted)
 - Last commit: `b7b388c` Verify the failure-tolerance demo run end to end before recording it
 - Finished:

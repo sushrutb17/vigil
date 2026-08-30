@@ -191,8 +191,9 @@ Transition mood: clean, slow → Scene 2
 ### Scene 2 — Architecture — 30s — `0:28–0:58`
 `docs/architecture.png`'s graph, rebuilt as vector and **assembled stage by
 stage** rather than shown whole: corpus → deterministic ingest+clustering (green,
-with `no LLM call reaches this code` surfacing as its own beat) → Analyst agent
-(blue) with risk scoring held deliberately *outside* it in green → the gold
+with `no LLM call reaches this code` surfacing as its own beat) → **Google ADK
+Analyst · Gemini 3.7 Flash** (blue) with risk scoring held deliberately *outside*
+it in green → the gold
 `total ≥ 0.60?` diamond → the three-agent fan-out → Critic + the deterministic
 strip that always runs last → the red terminal `HUMAN APPROVAL`. `config/frozen.yaml`
 enters in red with its read-only arrow. VO is `DEMO_SCRIPT.md` § 0:30–1:00, whose
@@ -214,6 +215,8 @@ uncited claim, and **Approve** → Markdown packet downloads.
 The bridge line from `DEMO_SCRIPT.md` (job runs the 6-report fixture, dashboard
 serves the committed 5,000-report snapshot) **must** be spoken between the console
 and the dashboard or the segment reads as incoherent.
+The final 173-word narration and continuous-take shot windows are locked in
+`docs/DEMO_SCRIPT.md`; do not improvise this segment.
 Sequential/interaction: real, not simulated. This is the whole point of the segment.
 Audio intent: captured audio or clean silence. Narration over the top.
 Audio-coupled idea: **none — prohibited.** No SFX may touch this scene.
@@ -227,6 +230,8 @@ not hung). A restrained overlay marks the three things to look at without
 obscuring the terminal: the fault-injection banner, `DEGRADED`, and
 `## Risk Assessment` on its cited deterministic fallback while
 `## Recommended Brief` stays model-authored.
+Use the final shortened 41-word narration in `docs/DEMO_SCRIPT.md`; the previous
+63-word version outran a readable 20-second technical demonstration.
 Sequential/interaction: real execution; overlay callouts are the only added layer.
 Audio intent: unchanged from capture.
 Audio-coupled idea: none over the footage. Overlay callouts appear silently.
