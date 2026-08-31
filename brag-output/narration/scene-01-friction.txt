@@ -1,5 +1,9 @@
-A safety report that matters can look exactly like one that doesn't. Each report feels isolated. The pattern is invisible.
+Aviation safety reports exist to turn incidents and near misses into lessons before they become accidents.
 
-NASA receives more than one hundred thousand confidential aviation reports a year, and every one is read by two expert analysts within three working days.
+Pilots, controllers, and crews submit them confidentially so hazards can be identified and addressed.
 
-But the pattern across forty reports may surface months later. That gap is a risk window. VIGIL is built to close it.
+
+NASA receives more than one hundred thousand reports a year, each reviewed by expert analysts. But when one pattern is scattered across forty reports, it may surface months later.
+
+
+That delay is the risk window VIGIL closes.

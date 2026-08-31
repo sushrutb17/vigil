@@ -15,7 +15,7 @@ HOW TO USE THIS FILE
 - If the Cloud Run job is still finishing while you move through the tabs, that
   is fine. The command continues running in Terminal while the browser is in
   front.
-
+----------------------------------------------------------------------------------------------------------------------------------
 [00:00–00:10 · TERMINAL]
 [Show the complete command, project and region. Start it, then switch to the
 pre-opened Cloud Run Jobs tab.]
@@ -27,7 +27,7 @@ demo, I'm starting the same Cloud Run batch job by hand.
 [Cloud Run → Jobs → vigil-batch. Open the newest execution. Show its execution
 name, us-central1 region, status and 1-task progress. Click View Logs and let the
 execution-filtered log entries remain visible.]
-
+----------------------------------------------------------------------------------------------------------------------------------
 SAY: The live run uses Gemini 3.7 Flash through Google ADK. Each agent call
 records its agent name, model, token count, and latency in Firestore.
 
@@ -36,7 +36,7 @@ records its agent name, model, token count, and latency in Firestore.
 agent_log, ordered by created_at descending. Refresh or run the query, open the
 newest document and hold on the agent, model, tokens, latency_ms and created_at
 fields. Make gemini-3.7-flash legible.]
-
+----------------------------------------------------------------------------------------------------------------------------------
 SAY: Here is the Cloud Run execution, and here are the Firestore agent-log
 documents written by that run.
 
@@ -44,7 +44,7 @@ documents written by that run.
 [In the second Firestore tab, show the collection list: agent_log, clusters,
 escalations, hazards and reports. Open clusters, select one document, and show
 its risk, status and brief fields. Do not edit anything.]
-
+----------------------------------------------------------------------------------------------------------------------------------
 [00:49–00:56 · CLOUD SCHEDULER]
 [Open vigil-weekly-triage. Show Enabled, schedule 0 9 * * 1, timezone
 America/Toronto and the HTTP target ending in /jobs/vigil-batch:run. Hold the
@@ -52,7 +52,7 @@ settled configuration for at least three seconds. Do not click Force run.]
 
 SAY: This is the weekly Scheduler configuration that normally starts it
 unattended.
-
+----------------------------------------------------------------------------------------------------------------------------------
 [00:56–01:08 · DEPLOYED DASHBOARD]
 [Switch to the warmed .run.app dashboard. Keep the URL visible. Show the
 five-thousand-report summary, then select an escalated hazard cluster with the
@@ -63,7 +63,7 @@ the live proof. The dashboard serves a committed snapshot of a real
 five-thousand-report run, so it loads instantly for you without a model call per
 page view, and without depending on my API quota surviving the judging window.
 Same pipeline, same code, bigger slice.
-
+----------------------------------------------------------------------------------------------------------------------------------
 [01:08–01:25 · EVIDENCE + HUMAN GATE]
 [Show the Evidence selector and an ACN-backed source. In Edit draft (Markdown),
 append "Immediate operational intervention is required." without a citation.
