@@ -112,9 +112,9 @@ This mirrors `brag-output/narration/scene-04-failure.txt`. The shortened narrati
 the output readable instead of forcing the old 63-word take to roughly 189 words
 per minute:
 
-> "I killed the Risk agent at its real call site. The brief stays alive: the other
-> agents finish, Risk falls back to a cited deterministic line, and DEGRADED is
-> stamped on the result. A real API outage follows this same path."
+> "I make the Risk agent fail on purpose. The agents keep working, so VIGIL
+> produces a brief. It marks the result DEGRADED and fills the Risk section with
+> a cited backup based on fixed rules. An API failure follows this path."
 
 ## 2:43–3:18 — The numbers (35s)
 
