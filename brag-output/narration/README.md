@@ -28,3 +28,9 @@ Recording setup:
 Scene 3 remains one uninterrupted picture take, but its narration is still a
 separate audio recording. Scene 4's callouts are visual prompts, not substitute
 narration; read the complete scene-4 script.
+
+`scene-03-live.txt` is intentionally formatted as a presenter run sheet rather
+than a speech-only page. Read only its `SAY` lines; bracketed text is a silent
+screen direction. When keeping that file beside the demo on one Mac display,
+use macOS **Record Selected Portion** and place the capture boundary around only
+the Terminal/browser side so the run sheet is not visible in the final video.
