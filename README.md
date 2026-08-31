@@ -15,10 +15,9 @@ Firestore.
 ## The problem
 
 NASA's Aviation Safety Reporting System takes in over 100,000 confidential
-incident reports a year, every one read by expert human analysts. The value is
-not in any single report — it is in noticing that eleven separately-filed
-reports over five weeks describe the same emerging hazard, a fact that exists
-only in the aggregate. VIGIL compresses "40 similar reports filed separately"
+incident reports a year, every one read by expert human analysts. The value lives
+in the aggregate, where eleven separately-filed reports over five weeks describe
+the same emerging hazard that no single report contains. VIGIL compresses "40 similar reports filed separately"
 into "one named hazard with a source-cited draft brief," running unattended on
 a weekly Cloud Scheduler trigger, with a human as the only terminal gate.
 
@@ -35,8 +34,8 @@ Reading the diagram: everything green is deterministic code, everything blue is 
 model call. The two are deliberately not interchangeable. Clustering and risk
 scoring contain **no** model call, the Analyst names hazards but never computes
 risk, and the last thing to touch any brief is deterministic code rather than an
-agent. The headline feature is what the agents are structurally forbidden from
-doing — the full invariant list, each enforced by a test, is in
+agent. The headline feature is the list of things the agents cannot do. Every
+invariant is enforced by a test; the full list is in
 [Architecture and safety invariants](#architecture-and-safety-invariants).
 
 ## What is runnable now
@@ -100,7 +99,7 @@ written to `eval/runs/*.json`, which is committed.
 
 ## Measured results
 
-All numbers come from `eval/runs/`, which is committed, not from a spreadsheet.
+All numbers come from `eval/runs/`, which is committed to the repo.
 
 ### Extractor self-improvement
 
@@ -112,15 +111,15 @@ First live run, 2026-08-29, seeded 200-row dev sample and 100-row locked holdout
 | `v1` (hand-written) | 0.0056 | 0.105 | 0.0081 | 0.080 |
 | `v2` (promoted by the loop) | **0.4099** | **0.600** | **0.4219** | **0.680** |
 
-Three things we are reporting because they are true, not because they flatter:
+Three findings from that run, including the unflattering ones:
 
 1. **The hand-written v1 extractor lost to a trivial baseline.** Majority-class
    plus keyword rules beat the live LLM by roughly 9x on macro-F1. v1 never told
    the model that the ASRS labels are a *closed vocabulary*, so it answered
    "Approach" where the coded value is "Initial Approach". This is why the
-   baseline is in the harness at all: without it, v2's 0.41 would read as a win
-   from nothing rather than the repair of a regression.
-2. **The holdout gain exceeded the dev gain** (+0.4139 vs +0.4043) — the opposite
+   baseline is in the eval at all: without it, v2's 0.41 would read as a win from
+   nothing rather than the repair of a regression.
+2. **The holdout gain exceeded the dev gain** (+0.4139 vs +0.4043), the opposite
    of overfitting, and the real evidence that the Evaluator fixed a defect rather
    than memorized the dev split.
 3. **The field the loop did not optimize still trails its baseline.**
@@ -143,7 +142,7 @@ these. Real 5,000-report slice:
 
 **The clustering numbers are bad and we are leaving them visible.** Purity beats
 a single-blob baseline by only +0.08, the Adjusted Rand is effectively zero, and
-84% of reports end up unclustered — more than double the `noise_fraction < 0.40`
+84% of reports end up unclustered, more than double the `noise_fraction < 0.40`
 tripwire this project predeclared in `docs/EVAL.md`. That guard exists in
 `eval/guards.py` but was only ever invoked on the extractor promotion loop, so
 nothing had checked it against the clustering stage it was written for until we
@@ -152,7 +151,7 @@ ran this.
 In fairness to the design, `Events_Anomaly` is a coarse 58-value administrative
 taxonomy whose largest bucket ("ATC Issue All Types", 1,097 reports) spans
 operationally unrelated events, so a cluster can be operationally coherent while
-scoring badly against it — and the 23 clusters it does produce are recognisably
+scoring badly against it, and the 23 clusters it does produce are recognisably
 real hazards (drone encounters at low altitude, cabin fume events, NMAC
 conflicts). But an ARI of 0.0018 is too low to wave away.
 
@@ -192,16 +191,16 @@ live pipeline:
 HDBSCAN only, in a reproducible single-worker configuration. The risk policy in
 `config/frozen.yaml` is loaded as immutable data at runtime; agents cannot retune
 the escalation threshold. The deterministic citation gate in `agents/critic.py`
-removes every factual claim missing a bracketed ACN citation — validating
-*provenance*, not just citation shape: an ACN that appears in no source report is
-stripped even though it is correctly formatted.
+removes every factual claim missing a bracketed ACN citation. It validates
+*provenance* rather than citation shape: an ACN that appears in no source report
+is stripped even though it is correctly formatted.
 
 The self-improvement loop is fenced in code, not just in prose. It may revise the
 Extractor instruction and nothing else (`REVISABLE == {"extractor"}`; any other
 agent raises). A promotion writes `config/prompts/`, never `config/frozen.yaml`.
 `eval/holdout_score.py` is the only module that may read `data/holdout/`, and it
 is called only at the promote/discard decision, after the candidate text is
-already fixed — so nothing the holdout returns can influence a revision. Each of
+already fixed, so nothing the holdout returns can influence a revision. Each of
 those is enforced by a test in `tests/`.
 
 The live ADK graph is defined in `agents/definitions.py`, using the verified Flash

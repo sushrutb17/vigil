@@ -18,14 +18,14 @@ Category: **Taskmaster**. Solo entrant.
 NASA's Aviation Safety Reporting System takes in over 100,000 confidential
 incident reports a year. Every one is read by two expert analysts within a few
 working days, and when a pattern is severe enough the output is an Alert Message
-sent to the organizations in a position to act. It is one of the most successful
-safety-learning institutions ever built, and it runs on human attention that does
-not scale.
+sent to the organizations in a position to act. It works, and it runs on human
+attention that does not scale.
 
 The friction is specific: the reports arrive faster than anyone can synthesize
-them, and the value is not in any single report — it is in noticing that eleven
-unrelated reports over five weeks describe the same emerging hazard. That is a
-background, multi-step, judgment-heavy workflow. Nobody wants a chatbot for it.
+them, and the value lives in the aggregate, where eleven unrelated reports over
+five weeks describe the same emerging hazard that no single report contains. That
+is a background, multi-step, judgment-heavy workflow. Nobody wants a chatbot for
+it.
 
 ## What it does
 
@@ -45,7 +45,7 @@ What the analyst actually gets, beyond the brief:
   unclustered, and a report being statistically lonely says nothing about whether
   it is dangerous. Any report whose NASA-coded outcome matches the frozen severe
   vocabulary is surfaced in its own review queue even when it belongs to no
-  pattern — **1,328 of them in the committed run**. It is deliberately given no
+  pattern. **1,328 of them appear in the committed run.** Each is deliberately given no
   name, no risk score and no brief, because one report is not a pattern and
   dressing it up as one would be the exact overreach this system avoids.
 - **Every citation is one click from its source.** An ACN in a brief opens the
@@ -65,17 +65,16 @@ What the analyst actually gets, beyond the brief:
 
 ## The Twist
 
-**Every other demo shows what the agents can do. VIGIL's headline feature is what
-they are structurally forbidden from doing.**
+**VIGIL's headline feature is the list of things its agents cannot do.**
 
-This is a safety-triage system, so the restraint is not a disclaimer in a README —
-it is mechanical, and it is enforced by tests that fail if you remove it:
+This is a safety-triage system, so every constraint below is mechanical, and each
+one is enforced by a test that fails if you remove it:
 
 - **No LLM call can reach the clustering stage.** Pattern detection is embeddings
   plus seeded HDBSCAN, deterministic and reproducible. A test asserts that
   `pipeline/cluster.py` contains no model client at all.
 - **The risk thresholds are frozen.** `config/frozen.yaml` is loaded read-only.
-  No agent may retune the severity bar — including the self-improvement loop,
+  No agent may retune the severity bar, including the self-improvement loop,
   which has no code path to that file. A safety system that quietly lowers its
   own alerting threshold to look calmer is an audit failure.
 - **The citation gate is deterministic and runs last.** After the LLM Critic, a
@@ -86,19 +85,18 @@ it is mechanical, and it is enforced by tests that fail if you remove it:
 - **The holdout is locked.** `data/holdout/` is chmod 0444 and read by exactly
   one module. The self-improvement loop iterates on the validation split, and the
   holdout is consulted only at the promote/discard decision, after the candidate
-  prompt text is already fixed — so nothing it returns can shape a revision. A
+  prompt text is already fixed, so nothing it returns can shape a revision. A
   guard failure short-circuits before it is read at all.
 - **The gate has no exception for a human.** The reviewer can edit a draft before
-  approving it — and the same deterministic citation gate runs against their
+  approving it, and the same deterministic citation gate runs against their
   edit. Add an uncited sentence and approval is refused, with the offending claim
   named. The privileged reviewer is the most plausible person to smuggle an
   unsourced claim into a safety document, so they are the last person who should
   get an exemption.
-- **Evidence is checkable, not just cited.** A citation you cannot resolve is a
-  claim of provenance rather than provenance. Every ACN in a brief opens the
-  source report in one click, and artifact construction *fails* if a brief cites
-  an ACN the run has no report for — so a citation the UI cannot resolve can
-  never reach a reviewer in the first place.
+- **Evidence is checkable.** Every ACN in a brief opens the source report in one
+  click, and artifact construction *fails* if a brief cites an ACN the run has no
+  report for, so a citation the UI cannot resolve can never reach a reviewer in
+  the first place.
 - **The human gate is terminal.** There is no auto-approve flag, and adding one
   is listed as a prohibited change in the repo's own guardrails.
 
@@ -107,7 +105,7 @@ it is mechanical, and it is enforced by tests that fail if you remove it:
 VIGIL is deliberately shaped like the process it assists rather than like a
 chatbot. ASRS screens every report through two independent expert analysts within
 three working days, and escalates confirmed patterns as an Alert Message to
-organizations in authority — it never takes operational action itself. VIGIL
+organizations in authority, and it never takes operational action itself. VIGIL
 mirrors that exact triage-then-alert workflow: independent parallel assessment,
 a severity threshold that a human set and no agent can move, and a draft that
 stops at a human's desk. (Sources: asrs.arc.nasa.gov; NTRS document
@@ -130,7 +128,8 @@ Two architecture decisions worth naming, since the rubric asks about engineering
 judgment rather than API calls:
 
 **The expensive stage is behind the threshold gate.** The Analyst runs once per
-*cluster*, not once per report — 23 calls on a 5,000-report slice, not 5,000. The
+*cluster* rather than once per report. That is 23 calls on a 5,000-report slice
+instead of 5,000. The
 parallel Coordinator runs only for clusters that actually escalate. An early
 design had a per-report extraction step; measuring it showed roughly 5,000 calls
 to reproduce structured fields that NASA already codes in its own columns, so we
@@ -177,7 +176,7 @@ keeping every legitimate one.
 
 **The clustering is the component we most wanted to be right, and it is not.**
 Purity beats a single-blob baseline by only 0.08, the Adjusted Rand is
-effectively zero, and 84% of reports end up unclustered — more than double the
+effectively zero, and 84% of reports end up unclustered, more than double the
 `noise_fraction < 0.40` tripwire we ourselves predeclared. That guard was
 implemented but only ever invoked on the extractor loop, so nothing had checked
 it against the clustering stage it was written for until we ran this.
@@ -188,21 +187,20 @@ behaviour the rest of this system exists to prevent, and we would rather submit 
 measured failure than an unmeasured success.
 
 What we did instead was change what happens to the reports the clustering fails
-on. An 84% noise fraction is only a safety problem if noise means *discarded* —
+on. An 84% noise fraction is only a safety problem if noise means *discarded*,
 so it no longer does. Every unclustered report is still checked against the
 frozen severe-outcome vocabulary, and the 1,328 that match are routed to their
 own analyst queue with their evidence attached. That does not make the clustering
 better and we are not presenting it as though it does. It makes the clustering's
 failure non-silent, which is a different and more honest claim: the metric stays
-bad, and a report the algorithm could not place is now seen by a human instead of
-falling through the floor.
+bad, and a report the algorithm could not place is now seen by a human.
 
 ## Challenges, findings and learnings
 
 We are reporting the failures because they are the actual findings.
 
 **1. Our hand-written extractor lost to a trivial baseline.** v1 scored macro-F1
-0.0056 against majority-class-plus-keyword-rules at 0.0515 — roughly nine times
+0.0056 against majority-class-plus-keyword-rules at 0.0515, roughly nine times
 worse than a heuristic with no model in it. The cause was that v1 never told the
 model the ASRS labels are a *closed vocabulary*, so it answered "Approach" where
 the coded value is "Initial Approach". Without a baseline in the harness, v2's
@@ -211,7 +209,7 @@ of a regression. The holdout gain then came in slightly *larger* than the dev
 gain (+0.414 vs +0.404), which is the opposite of overfitting.
 
 **2. Our citation gate was checking the wrong thing.** It enforced that claims
-*looked* cited — a regex for `[ACN 1234567]`. Reading a real brief showed the
+*looked* cited, using a regex for `[ACN 1234567]`. Reading a real brief showed the
 Risk agent citing ACNs 1000001–1000005 for a cluster whose actual members were
 1044401, 1461959, and others. Those IDs exist in none of the 38,655 reports; the
 model had invented a plausible placeholder sequence and the gate kept it, because
@@ -224,17 +222,17 @@ invalid citations surgically.
 **3. Two agents were spending tokens on output that was deleted every single
 run.** `Precedent` and `Risk Assessment` came back empty in production while all
 three sub-agents reported success. The gate required square-bracketed citations,
-and only the Brief Writer's prompt actually specified that format — so 100% of
+and only the Brief Writer's prompt actually specified that format, so 100% of
 the Risk agent's output was being deleted by construction, silently, because
 silent deletion is exactly what the gate is designed to do. Nothing errored. We
 found it by reading the brief that landed in Firestore, not from any log.
 
-**The through-line:** all three were failures of *verification*, not of model
-capability, and none of them raised an exception. A system whose safety story is
+All three were failures of *verification* rather than model capability, and none
+of them raised an exception. A system whose safety story is
 "the agents are constrained" has to keep checking that the constraints are
 measuring what they claim to measure. We also caught ourselves doing the
 tempting version of this: a guard blocked a promotion, and on inspection the
-guard's metric was wrong — it rewarded free-text sprawl and punished a correctly
+guard's metric was wrong. It rewarded free-text sprawl and punished a correctly
 constrained candidate. We fixed the metric so it is *stricter* against the hack
 it was written for, and wrote the whole episode into `PROGRESS.md`, because
 "changed a tripwire right after it blocked us" is precisely the move that needs

@@ -67,14 +67,14 @@ so one that is growing looks different from one that is stable. It works, it is
 deployed, and you can open it.
 
 What I actually want to write about is the three things that went wrong, because
-they were more instructive than anything that worked — and because I put all
+they were more instructive than anything that worked, and because I put all
 three in the submission rather than quietly fixing the numbers first.
 
 ## 1. My citation gate was checking that claims *looked* sourced
 
 The core safety guarantee is simple: every factual claim in a brief must cite a
 report ID (an ACN), and a deterministic pass strips any claim that doesn't. It
-runs after the LLM critic, and it runs even if the critic call died — so the
+runs after the LLM critic, and it runs even if the critic call died, so the
 guarantee never depends on a model having cooperated.
 
 Then I read a brief. The Risk Assessment section cited `[ACN 1000001]` through
@@ -85,7 +85,7 @@ I checked the source data: ACNs 1000001–1000005 appear in **none** of the 38,6
 reports. The model had invented a tidy placeholder sequence, and my gate had
 waved it through.
 
-The bug was one regular expression. The gate matched `\[ACN\s+\d{4,}\]` — any
+The bug was one regular expression. The gate matched `\[ACN\s+\d{4,}\]`, any
 bracketed number with four or more digits. It was enforcing *shape*, not
 *provenance*.
 
@@ -94,21 +94,20 @@ And the root cause was mine, not the model's. I had told the Risk agent to cite
 supplied a member *count* and no ACNs at all. Asked to cite sources it had never
 been given, it produced the most plausible-looking thing available.
 
-The part worth internalising: **a fabricated citation is worse than a missing
-one.** An uncited claim gets stripped and disappears. A fabricated one survives,
+**A fabricated citation is worse than a missing one.** An uncited claim gets stripped and disappears. A fabricated one survives,
 carrying false authority, and an investigator who pulls that ACN gets an
 unrelated report. The failure mode I had defended against was strictly less
 dangerous than the one I had created.
 
 The gate now takes an allow-list of ACNs that genuinely exist in the run, and
-removes invalid citations surgically — a claim keeps its real sources and loses
+removes invalid citations surgically. A claim keeps its real sources and loses
 only the invented ones. Artifact construction now fails outright if a brief cites
 an ACN the run can't resolve, so an uncheckable citation can't reach a reviewer
 at all.
 
 Measured afterwards on 400 seeded claims across 200 trials: **1.000 catch rate**
 for both uncited claims and fabricated-but-well-formed ACNs. The number I care
-about more is the control — **1.000 retention** of correctly cited claims, because
+about more is the control, **1.000 retention** of correctly cited claims, because
 a gate that simply deleted everything would also score a perfect catch rate.
 
 ## 2. My LLM extractor lost to a baseline with no model in it
@@ -140,7 +139,7 @@ The loop found the cause I'd missed: v1 never told the model the labels were a
 | v1 | 0.0056 | 0.0081 |
 | v2 (promoted) | **0.4099** | **0.4219** |
 
-The holdout gain (+0.4139) exceeded the dev gain (+0.4043) — the opposite of
+The holdout gain (+0.4139) exceeded the dev gain (+0.4043), the opposite of
 overfitting, and the strongest evidence the loop fixed a real defect rather than
 memorising the sample.
 
@@ -157,8 +156,7 @@ It hadn't. The guard was buggy.
 
 Diversity was computed as `distinct_predicted / distinct_expected`, which rewarded
 v1's free-text sprawl — 19 unique strings over 8 reports, scoring 2.33 — and
-punished a correctly vocabulary-constrained candidate scoring 1.00. It was
-measuring the disease as health.
+punished a correctly vocabulary-constrained candidate scoring 1.00.
 
 I replaced it with in-vocabulary label coverage, bounded to [0,1], which actually
 tightens the guard against the hack it was written for: predicting one label
@@ -166,7 +164,7 @@ everywhere on an 18-class field now scores ~0.06, well under the 0.15 floor.
 
 Then I wrote the whole thing down in the progress log, because *"we changed a
 tripwire immediately after it blocked us"* is precisely the sequence of events
-that needs an audit trail — whatever the justification, and especially when the
+that needs an audit trail, whatever the justification, and especially when the
 justification is good.
 
 ## The one I couldn't fix
@@ -179,7 +177,7 @@ The clustering is bad, and I'm reporting it that way.
 | Adjusted Rand | 0.0018 |
 | Noise fraction | **0.837** |
 
-I had predeclared a tripwire at `noise_fraction < 0.40`. I hit 0.837 — 84% of
+I had predeclared a tripwire at `noise_fraction < 0.40`. I hit 0.837, or 84% of
 reports unclustered, more than double my own limit. The guard existed in code but
 had only ever been wired to the extractor loop, so nothing had checked it against
 the stage it was written for until I ran it.
@@ -191,19 +189,18 @@ not passing the test; it's removing it.
 
 So the number stands. What I changed instead was what happens to the reports
 clustering fails on. An 84% noise fraction is only a safety problem if noise means
-*discarded* — so it no longer does. Every unclustered report is still checked
+*discarded*, so it no longer does. Every unclustered report is still checked
 against the frozen severe-outcome vocabulary, and the **1,328** that match are
 routed to their own analyst queue with their evidence attached. They get no name,
 no risk score and no brief, because one report is not a pattern and dressing it up
-as one would be the same overreach in a different costume.
+as one would be the same overreach.
 
 That doesn't make the clustering better. It makes its failure non-silent, which
 is a smaller and more honest claim.
 
-## The actual thesis
+## What it cannot do
 
-Every other demo shows what the agents *can* do. VIGIL's headline feature is what
-they are structurally forbidden from doing:
+VIGIL's headline feature is the list of things its agents cannot do:
 
 - **No LLM call can reach the clustering stage.** It's embeddings plus seeded
   HDBSCAN, deterministic and reproducible. A test asserts the module contains no
@@ -214,18 +211,18 @@ they are structurally forbidden from doing:
 - **The holdout is locked**, chmod 0444, read by exactly one module, and consulted
   only after the candidate prompt is already fixed.
 - **The gate has no exception for a human.** A reviewer can edit a draft before
-  approving — and the same citation gate runs on their edit. The privileged
+  approving, and the same citation gate runs on their edit. The privileged
   reviewer is the most plausible person to smuggle an unsourced claim into a
   safety document, so they're the last person who should get an exemption.
 - **The human gate is terminal.** There is no auto-approve flag, and adding one is
   a prohibited change in the repo's own guardrails.
 
-Restraint as a mechanism, not a disclaimer in a README.
+Every one of those constraints is enforced by a test.
 
 Built solo in eleven days on **Gemini 3.7 Flash**, the **Google Agent Development
 Kit** (Python), **Cloud Run** and **Firestore**, on public NASA ASRS data. The
 repo is public and `eval/runs/` is committed, so every number above can be checked
-against the JSON that produced it — including the ones I'd rather not have
+against the JSON that produced it, including the ones I'd rather not have
 published.
 
 - Live: https://vigil-ui-715230861973.us-central1.run.app
@@ -249,43 +246,41 @@ published.
 > trust signal rather than as a disclaimer. The failure-led framing is kept for
 > Post 1, where a technical audience clicked in expecting exactly that.
 
-A safety report that matters looks exactly like one that doesn't. That is the
-whole problem.
+A safety report that matters looks exactly like one that doesn't.
 
 NASA's Aviation Safety Reporting System takes in more than 100,000 confidential
 reports a year, and every single one is read by two expert analysts within three
-working days. Most industries with the same intake problem — rail, medical
-devices, energy — don't have that. Reports pile up, each one looks minor, and the
+working days. Most industries with the same intake problem (rail, medical
+devices, energy) don't have that. Reports pile up, each one looks minor, and the
 pattern across forty of them surfaces months later in a quarterly review. That
-gap is a risk window.
+delay is the risk window.
 
 I spent 11 days building VIGIL to close it.
 
 Point it at 5,000 real NASA safety reports, and one pass returns:
 
-→ 23 emerging hazard patterns, named and risk-scored
-→ 4 severe enough to escalate, each with an investigator brief in which every
-   claim cites the specific report it came from — click any citation and read the
-   original narrative
-→ 1,328 severe reports that matched no pattern at all, surfaced individually
-   instead of being silently dropped
-→ recurrence tracking across weekly runs, so a hazard that is growing looks
-   different from one that is stable
+- 23 emerging hazard patterns, named and risk-scored
+- 4 severe enough to escalate, each with an investigator brief in which every
+  claim cites the specific report it came from. Click any citation and read the
+  original narrative.
+- 1,328 severe reports that matched no pattern at all, surfaced individually
+  instead of being silently dropped
+- recurrence tracking across weekly runs, so a hazard that is growing looks
+  different from one that is stable
 
-Work that takes an analyst weeks, in minutes.
+That pass takes minutes.
 
-The part I would care about most if I were the analyst: **it cannot act.** VIGIL
-drafts and recommends — a human approves everything, and there is no override.
+The thing I would care about most as the analyst is that VIGIL cannot act. It
+drafts and recommends; a human approves everything, and there is no override.
 The risk thresholds live in a file no agent can write to. No language model goes
 anywhere near the clustering stage. And every claim is stripped unless it cites a
 real report, including claims a human adds while editing the draft.
 
-Restraint as a mechanism, not a promise in a README.
+Every one of those constraints is enforced by a test.
 
 Built solo on Gemini, Google ADK, Cloud Run and Firestore, on public NASA data.
-The repo and the evaluation ledgers are both public — including the metrics where
-it underperforms, because a safety tool that only publishes its good numbers is
-not one you should trust.
+The repo and the evaluation ledgers are both public, including the metrics where
+it underperforms.
 
 Live: https://vigil-ui-715230861973.us-central1.run.app
 Code: https://github.com/sushrutb17/vigil
@@ -305,34 +300,33 @@ Created for entry into the All Things Agentic Hackathon.
 > The interactive architecture diagram (https://vigil-architecture.vercel.app) is
 > deliberately **not** in the thread body — post 6 already carries two links and a
 > third costs characters for the least-clicked one. If you want it, post it as a
-> reply to 5/, where the "what they're forbidden from doing" claim is the thing a
+> reply to 5/, where the "things its agents can't do" claim is the thing a
 > reader would want to check against the graph.
 
 **1/** I spent 11 days building an AI system for aviation safety triage. The most
-useful thing I can tell you is what it got wrong — and why I shipped the numbers
-instead of fixing them quietly. 🧵 #AllThingsAgentic
+useful thing I can tell you is what it got wrong, and why I shipped the numbers
+instead of fixing them quietly. #AllThingsAgentic
 
 **2/** My citation gate checked that claims *looked* sourced, not that they were.
 A model invented 5 report IDs existing in none of the 38,655 real ones. The gate
-kept them. A fabricated citation is worse than a missing one — the missing one
+kept them. A fabricated citation is worse than a missing one. The missing one
 gets stripped, the fake one survives carrying authority.
 
 **3/** My hand-written extractor scored 0.0056 macro-F1. A majority-class baseline
 scored 0.0515. My LLM prompt was 9× worse than a heuristic with no model in it.
-The self-improvement loop found why and took it to 0.42 — and the gain held on a
+The self-improvement loop found why and took it to 0.42, and the gain held on a
 holdout the loop can't read.
 
 **4/** 84% of reports end up unclustered, against a 0.40 tripwire I set myself. I
 didn't tune the parameters until it passed. Tuning until the alarm stops ringing
 isn't passing the test, it's removing it. The number is in the submission.
 
-**5/** The thesis: every other demo shows what the agents can do. This one's
-headline feature is what they're *forbidden* from doing. No LLM near the
-clustering stage. Frozen risk thresholds. Locked holdout. A citation gate with no
-exception even for the human.
+**5/** This one's headline feature is the list of things its agents can't do. No
+LLM near the clustering stage. Frozen risk thresholds. Locked holdout. A citation
+gate with no exception even for the human.
 
 **6/** Built solo on Gemini, Google ADK, Cloud Run + Firestore, on public NASA
-ASRS data. Repo and eval ledgers public — every number checkable against the JSON
+ASRS data. Repo and eval ledgers public. Every number checkable against the JSON
 that produced it.
 Live: https://vigil-ui-715230861973.us-central1.run.app
 Code: https://github.com/sushrutb17/vigil
