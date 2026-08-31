@@ -1,0 +1,5 @@
+The twist isn't what these agents can do. It's what they're structurally forbidden from doing.
+
+No model reaches clustering. Risk thresholds cannot be retuned. The holdout stays locked. Every citation must resolve to a real source, and human approval is terminal.
+
+Built solo in eleven days with Gemini, Google ADK, Cloud Run, Firestore, and public NASA data, VIGIL turns a report backlog into a ranked hazard list with an evidence-cited brief — hours, not months.

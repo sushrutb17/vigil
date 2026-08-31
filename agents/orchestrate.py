@@ -8,11 +8,11 @@ never affected by this module. Kept out of ``pipeline/`` since it depends on
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 
 from agents import contracts
-from agents.critic import strip_uncited_claims
+from agents.critic import format_citations, strip_uncited_claims
 from agents.live import run_llm_agent
 from agents.runtime import parse_structured_response
 from pipeline.models import ASRSReport, ClusterAssessment, RiskScore
@@ -77,6 +77,31 @@ def _call_or_none(fn: Callable[[], str]) -> str | None:
         return None
 
 
+class InjectedFailure(RuntimeError):
+    """Raised in place of a sub-agent call by ``--fail-agent``.
+
+    Exists so the 2-of-3 fan-out tolerance can be *demonstrated* rather than
+    asserted. ARCHITECTURE.md calls for a "kill one sub-agent -> DEGRADED brief"
+    demo beat, and waiting for a real Gemini outage to record it is not a plan.
+
+    Deliberately a real exception raised at the call site rather than a branch
+    that fabricates a None: it travels the exact path a genuine API failure
+    takes, through the same ``_call_or_none`` and the same failure accounting,
+    so what the demo shows is the real handler and not a simulation of it.
+    """
+
+
+def _guarded(name: str, fail_agents: frozenset[str], fn: Callable[[], str]) -> Callable[[], str]:
+    """Wrap a sub-agent call so an injected name fails instead of running."""
+
+    def call() -> str:
+        if name in fail_agents:
+            raise InjectedFailure(f"{name} failure injected via --fail-agent")
+        return fn()
+
+    return call
+
+
 def _precedent_candidates(
     assessment: ClusterAssessment, batch: Sequence[ASRSReport], *, limit: int
 ) -> list[ASRSReport]:
@@ -95,6 +120,37 @@ def _precedent_candidates(
     return candidates[:limit]
 
 
+def _backfill_empty_sections(brief: str, fallbacks: Mapping[str, str]) -> str:
+    """Restore a cited placeholder for any section the citation gate emptied.
+
+    ``strip_uncited_claims`` works line by line and always keeps headings, so a
+    section whose every line lacked a citation survives as a bare heading with no
+    body. That output is byte-identical to a section whose agent never ran, which
+    is how the Precedent section shipped empty through three live Cloud Run
+    executions without anything reporting an error — the agent succeeded, and the
+    gate silently deleted all of it.
+
+    The section-level fallbacks in ``live_draft_brief`` cannot cover this on their
+    own: they are chosen before assembly and only fire when a sub-agent *raised*.
+    This runs after the gate, so it is the only place that sees what the gate
+    actually removed. Replacements carry the cluster's member ACNs by
+    construction, so they pass the same gate they are repairing rather than
+    smuggling an uncited claim in behind it.
+    """
+    lines = brief.splitlines()
+    repaired: list[str] = []
+    for index, line in enumerate(lines):
+        repaired.append(line)
+        if line.strip() not in fallbacks:
+            continue
+        # A section is empty when the next nonblank line is another heading (or
+        # the document simply ends).
+        following = next((later.strip() for later in lines[index + 1 :] if later.strip()), "")
+        if not following or following.startswith("#"):
+            repaired.append(fallbacks[line.strip()])
+    return "\n".join(repaired)
+
+
 def live_draft_brief(
     assessment: ClusterAssessment,
     members: Sequence[ASRSReport],
@@ -109,6 +165,7 @@ def live_draft_brief(
     store: TriageStore,
     max_evidence: int = 20,
     max_precedent_candidates: int = 30,
+    fail_agents: frozenset[str] = frozenset(),
 ) -> str:
     """Draft a cited investigator brief for one escalated cluster.
 
@@ -122,7 +179,7 @@ def live_draft_brief(
     ``strip_uncited_claims`` runs last, unconditionally — guardrail #4 has no
     exceptions, regardless of what the LLM critic did or whether it ran at all.
     """
-    citations = " ".join(f"[ACN {acn}]" for acn in assessment.member_acns)
+    citations = format_citations(assessment.member_acns)
     candidates = _precedent_candidates(assessment, batch, limit=max_precedent_candidates)
     precedent_evidence = "\n".join(f"[ACN {r.acn}] {r.narrative}" for r in candidates)
     precedent_message = (
@@ -136,7 +193,12 @@ def live_draft_brief(
         f"severity={assessment.risk.severity:.2f}, frequency={assessment.risk.frequency:.2f}, "
         f"trend={assessment.risk.trend:.2f}, total={assessment.risk.total:.2f}, "
         f"member count={len(assessment.member_acns)}. Explain what these mean in plain "
-        "language. Do not change the numbers or recommend action."
+        "language. Do not change the numbers or recommend action.\n\n"
+        # RISK_INSTRUCTION tells this agent to cite "the ACNs supplied with the
+        # cluster". They were never actually supplied, so the model invented the
+        # obvious placeholder sequence [ACN 1000001]..[ACN 1000005] and the gate,
+        # which only checked citation shape, kept all of it. Supply them.
+        f"Cite only these ACNs, which are the reports in this cluster: {citations}"
     )
     evidence_sample = members[:max_evidence]
     evidence = "\n".join(f"[ACN {r.acn}] {r.narrative}" for r in evidence_sample)
@@ -147,56 +209,127 @@ def live_draft_brief(
     )
 
     with ThreadPoolExecutor(max_workers=3) as pool:
-        precedent_future = pool.submit(
-            _call_or_none,
-            lambda: run_llm_agent(precedent, message=precedent_message, model=model, store=store),
+        # With no candidates there is no question to ask: the prompt would say
+        # "(none found in this batch)" and the only honest answer is "no
+        # comparable reports", which carries no ACN and the gate deletes in full.
+        # Skipping the call states that deterministically and saves a live Flash
+        # call per escalated cluster.
+        precedent_future = (
+            pool.submit(
+                _call_or_none,
+                _guarded(
+                    "precedent",
+                    fail_agents,
+                    lambda: run_llm_agent(
+                        precedent, message=precedent_message, model=model, store=store
+                    ),
+                ),
+            )
+            if candidates
+            else None
         )
         risk_future = pool.submit(
             _call_or_none,
-            lambda: run_llm_agent(risk, message=risk_message, model=model, store=store),
+            _guarded(
+                "risk",
+                fail_agents,
+                lambda: run_llm_agent(risk, message=risk_message, model=model, store=store),
+            ),
         )
         brief_future = pool.submit(
             _call_or_none,
-            lambda: run_llm_agent(
-                brief_writer, message=brief_writer_message, model=brief_writer_model, store=store
+            _guarded(
+                "brief_writer",
+                fail_agents,
+                lambda: run_llm_agent(
+                    brief_writer,
+                    message=brief_writer_message,
+                    model=brief_writer_model,
+                    store=store,
+                ),
             ),
         )
-        precedent_text = precedent_future.result()
+        precedent_text = precedent_future.result() if precedent_future is not None else None
         risk_text = risk_future.result()
         brief_text = brief_future.result()
 
-    survived = sum(text is not None for text in (precedent_text, risk_text, brief_text))
-    if survived < 2:
-        raise CoordinatorFailure(
-            f"cluster {assessment.cluster_id}: only {survived}/3 coordinator sub-agents succeeded"
+    # A deliberately skipped Precedent call is not a failure. Counting failures
+    # rather than survivors keeps that distinction: an absent precedent must not
+    # stamp DEGRADED on a run in which every agent that was asked succeeded.
+    attempted = 3 if candidates else 2
+    failures = sum(
+        (
+            bool(candidates) and precedent_text is None,
+            risk_text is None,
+            brief_text is None,
         )
+    )
+    if failures > 1:
+        raise CoordinatorFailure(
+            f"cluster {assessment.cluster_id}: only {attempted - failures}/{attempted} "
+            "coordinator sub-agents succeeded"
+        )
+
+    # Keyed by heading so _backfill_empty_sections can reuse the same text after
+    # the gate runs. Every value carries the member ACNs, so each one survives the
+    # gate on its own.
+    fallbacks = {
+        "## Precedent": (
+            f"No comparable reports outside this cluster appear in this batch. {citations}"
+            if not candidates
+            else f"Precedent analysis unavailable this run. {citations}"
+        ),
+        "## Risk Assessment": (
+            f"Deterministic risk score {assessment.risk.total:.2f} (severity "
+            f"{assessment.risk.severity:.2f}, frequency {assessment.risk.frequency:.2f}, "
+            f"trend {assessment.risk.trend:.2f}). {citations}"
+        ),
+        "## Recommended Brief": f"Brief drafting unavailable this run. {citations}",
+    }
 
     sections = [f"# Draft: {assessment.name}"]
-    if survived < 3:
+    if failures:
         sections.append("DEGRADED")
     sections.append(f"## Hazard\n{assessment.hazard_statement} {citations}")
-    sections.append(
-        "## Precedent\n"
-        + (precedent_text or f"Precedent analysis unavailable this run. {citations}")
-    )
-    sections.append(
-        "## Risk Assessment\n"
-        + (
-            risk_text
-            or (
-                f"Deterministic risk score {assessment.risk.total:.2f} (severity "
-                f"{assessment.risk.severity:.2f}, frequency {assessment.risk.frequency:.2f}, "
-                f"trend {assessment.risk.trend:.2f}). {citations}"
-            )
-        )
-    )
-    sections.append(
-        "## Recommended Brief\n"
-        + (brief_text or f"Brief drafting unavailable this run. {citations}")
-    )
+    sections.append("## Precedent\n" + (precedent_text or fallbacks["## Precedent"]))
+    sections.append("## Risk Assessment\n" + (risk_text or fallbacks["## Risk Assessment"]))
+    sections.append("## Recommended Brief\n" + (brief_text or fallbacks["## Recommended Brief"]))
     draft = "\n\n".join(sections)
 
+    # The Critic is injectable as well. Losing it is the more interesting
+    # failure to show: the deterministic strip_uncited_claims below still runs,
+    # so the citation guarantee holds with the LLM reviewer entirely absent.
     critic_text = _call_or_none(
-        lambda: run_llm_agent(critic, message=draft, model=model, store=store)
+        _guarded(
+            "critic",
+            fail_agents,
+            lambda: run_llm_agent(critic, message=draft, model=model, store=store),
+        )
     )
-    return strip_uncited_claims(critic_text or draft).cleaned_brief
+    # The Precedent agent legitimately cites reports outside the cluster, so the
+    # allow-list is the cluster's members plus the candidates it was actually
+    # given. Anything else in the draft was invented.
+    allowed = {*assessment.member_acns, *(report.acn for report in candidates)}
+    gated = strip_uncited_claims(critic_text or draft, allowed_acns=allowed).cleaned_brief
+    return _reassert_degraded(_backfill_empty_sections(gated, fallbacks), degraded=bool(failures))
+
+
+def _reassert_degraded(brief: str, *, degraded: bool) -> str:
+    """Restore the DEGRADED banner if the LLM critic dropped it.
+
+    The critic's response is used verbatim as the brief, so until now the banner
+    survived only if the model chose to echo it — and CRITIC_INSTRUCTION asks it
+    to preserve *headings*, which DEGRADED is not. A reviewer would have had no
+    way to tell a partial-failure brief from a clean one.
+
+    Whether a sub-agent failed is a fact the orchestrator already knows for
+    certain. Deriving the banner from that fact instead of from the model's
+    memory is the same move as ``_backfill_empty_sections``: let the LLM write
+    the prose, but never let it be the only thing standing between a reviewer
+    and a safety-relevant marker.
+    """
+    if not degraded or "DEGRADED" in brief:
+        return brief
+    lines = brief.splitlines()
+    insert_at = 1 if lines and lines[0].startswith("# ") else 0
+    return "\n".join([*lines[:insert_at], "", "DEGRADED", *lines[insert_at:]])

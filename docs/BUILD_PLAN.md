@@ -1,5 +1,20 @@
 # VIGIL Build Plan — Aug 20 → Aug 31, 2026
 
+> **⚠ This is the original calendar, kept as a historical planning artifact. It is
+> NOT the status board and its checkboxes are NOT maintained.**
+>
+> The build did not follow this schedule — most of the pipeline landed in one session
+> on Aug 21 and was then untouched until Aug 28, after which it was worked in relay by
+> multiple harness sessions. Retro-ticking these boxes would invent a history that did
+> not happen.
+>
+> **For what is actually built and verified → [`docs/PHASES.md`](PHASES.md).**
+> For why decisions were made → [`docs/PROGRESS.md`](PROGRESS.md).
+> For the Aug 27 gate outcome → [`docs/GATE_DECISION.md`](GATE_DECISION.md).
+>
+> What this file is still good for: the **capacity model**, the **cut list**, and the
+> **anti-stall rules** at the bottom, all of which held up and were used.
+
 Deadline: **Aug 31, 5:00pm PDT = 8:00pm ET.** You are in ET.
 Capacity model: ~2.5–3h weekday evenings, ~6–8h weekend days ≈ 45h. The plan below is ~48h, so the **cut list is part of the plan**, not a failure mode.
 
@@ -66,6 +81,24 @@ Decision, written into the repo as `docs/GATE_DECISION.md`:
 ## Mon Aug 31 — Buffer + SUBMIT
 - [ ] Fix whatever Sunday exposed. **Submit by 12pm ET** — never at 7:50pm ET against an 8pm ET deadline
 - [ ] After submission confirmation: scale services to zero / tear down (credits!)
+
+## How it actually went (added 2026-08-29)
+
+| Planned for | Reality |
+|---|---|
+| Fri 21 — Extractor + first eval number | Extractor written; **its eval did not run until Aug 29**, and when it did, v1 lost to the majority-class baseline |
+| Sat 22 — Dedup + clustering + baselines | Clustering shipped. **Dedup was cut entirely** — ASRS pre-merges duplicate reports, so the stage had no work to do |
+| Sun 23 — Analyst + memory | Landed, though the real Firestore verification came Aug 29 |
+| Mon 24 / Tue 25 — Coordinator, Brief, Critic | Landed. The **Critic bounce loop was never built** — the deterministic gate afterwards is the stronger guarantee |
+| Wed 26 — UI + deploy | Slipped to Aug 29 |
+| Thu 27 — Day-7 gate | Held late, on Aug 28. Full build shipped |
+| Fri 28 — Self-improvement loop | Slipped to Aug 29; ran, promoted v1 → v2 |
+| Sat 29 — polish, full run, video prep | Polish and the full run landed. **Video not recorded** |
+| Sun 30 / Mon 31 — video + submit | Outstanding at time of writing |
+
+Cut in the end: Dedup stage, the Critic bounce loop, full-corpus RAG, the Pro call
+path, the Gemma bonus, and the trend sparkline. The floor described below — ingest →
+cluster → analyst → brief → critic → human gate, deployed and measured — shipped.
 
 ## Cut list (in order, when behind)
 1. Gemma bonus → 2. UI polish beyond functional → 3. Loop iterations 3→2 → 4. Precedent agent (Brief Writer cites cluster members directly) → 5. **Day-7 gate: whole parallel fan-out**

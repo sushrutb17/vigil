@@ -1,4 +1,23 @@
-.PHONY: demo run-real run-live ui test lint check download
+.PHONY: demo run-real run-live artifact ui test lint check download deploy require-key improve eval-offline
+
+# Load .env when it exists so the --live targets work without remembering to
+# `set -a; source .env; set +a` first. Forgetting it does not fail cleanly: ADK
+# raises inside the first Analyst call, once per cluster, and buries the one
+# useful line ("No API key was provided") under several hundred lines of async
+# traceback. .env is gitignored and holds a single unquoted KEY=value line.
+ifneq (,$(wildcard .env))
+include .env
+export
+endif
+
+# Fail in one line rather than mid-run, after the deterministic stages have
+# already spent time clustering 5,000 reports.
+require-key:
+	@if [ -z "$$GOOGLE_API_KEY" ]; then \
+		echo "GOOGLE_API_KEY is not set and no .env provides it."; \
+		echo "Put 'GOOGLE_API_KEY=...' in .env (gitignored), or export it, then retry."; \
+		exit 1; \
+	fi
 
 demo:
 	uv run python -m pipeline.run_batch --demo
@@ -6,8 +25,33 @@ demo:
 run-real:
 	uv run python -m pipeline.run_batch --dataset data/raw/default/train/0000.parquet --slice 5000
 
-run-live:
+run-live: require-key
 	uv run python -m pipeline.run_batch --dataset data/raw/default/train/0000.parquet --slice 5000 --live
+
+# Regenerates the snapshot the deployed Cloud Run UI serves. Needs GOOGLE_API_KEY.
+# This is a COMPLETE live run, identical to run-live except that it writes the
+# result to a file instead of stdout. Do not chain `run-live && artifact`: that
+# runs the whole pipeline twice, roughly 78 live Gemini calls instead of 39, for
+# one snapshot. Use this target on its own.
+artifact: require-key
+	uv run python -m pipeline.run_batch --dataset data/raw/default/train/0000.parquet \
+		--slice 5000 --live --output artifacts/demo_run.json > /dev/null
+	@echo "Wrote artifacts/demo_run.json"
+
+# Offline extractor self-improvement loop (Phase 5). Never part of the live
+# pipeline. Reads the validation split; touches the locked holdout only at the
+# promotion decision, through eval/holdout_score.py. Writes eval/runs/ and, on
+# a promotion, config/prompts/ — never config/frozen.yaml.
+# Deterministic offline evals: clustering vs Events_Anomaly, Critic catch rate.
+# No model calls, no holdout access, no credentials needed.
+eval-offline:
+	uv run python -m eval.offline_report
+
+improve: require-key
+	uv run python -m eval.improve --sample-size 200 --holdout-size 100
+
+deploy:
+	./infra/deploy.sh
 
 ui:
 	uv run streamlit run ui/streamlit_app.py

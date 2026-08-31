@@ -13,11 +13,47 @@ data/holdout/
 data/cache/
 
 # Runtime and evaluation output.
-eval/runs/
-artifacts/
+eval/runs/*
+artifacts/*
 *.log
+
+# Deliberate exception: the eval ledger. EVAL.md makes this the source of the
+# improvement curve ('never hand-drawn'), and a reviewer has to be able to
+# check the promotion decision against the numbers that produced it.
+!eval/runs/*.json
+
+# Deliberate exception: a committed snapshot of a real --live run over the real
+# ASRS slice. The deployed Cloud Run UI serves this so reviewers see genuine
+# model-written briefs over real data instantly, without a per-pageview model
+# cost or a dependency on API quota holding across the judging window.
+# Regenerate with `make artifact`.
+!artifacts/demo_run.json
 
 # Local coding-harness instructions are intentionally not part of the public repo.
 AGENTS.md
 CLAUDE.md
 ac-ai-assistant.md
+
+# Local submission-window burndown (see its own header): a temporary, dependency-
+# ordered view of the last ~26 hours before the Devpost deadline. docs/PHASES.md
+# is the durable status board and the one a reader should be pointed at. Ignored
+# rather than left untracked so a `git add .` on the public push cannot sweep it
+# in by accident. Delete after submitting.
+PROJECT_STATUS.md
+
+# Local harness/editor config, not part of the public repo.
+.agents/
+.claude/
+.vscode/
+
+# The gcloud CLI was installed into the repo root on 2026-08-29 (the Homebrew
+# cask install failed with "unknown install step: copy"; the official tarball
+# extracts wherever it is unpacked). Excluded here and in .gcloudignore /
+# .dockerignore so it never reaches a commit or a build context.
+google-cloud-sdk/
+google-cloud-cli-*.tar.gz
+
+# The `docs-collateral` git worktree, moved out to /Users/sush/vigil-docs on
+# 2026-08-30. While it sat at the repo root, `git add .` did not refuse it — it
+# warned and staged a 581MB embedded-repo gitlink that no clone could resolve.
+vigil-docs/

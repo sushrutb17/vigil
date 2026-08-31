@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <body>
+    <!--
+      SCENE 4 — Failure tolerance — 20s (2:23–2:43)
+      Real capture of:
+        set -a; source .env; set +a
+        uv run python -m pipeline.run_batch --demo --live --fail-agent risk
+      ~11s, exit 0, and SILENT between the banner and the final JSON — not hung.
+      VO: ../../narration/scene-04-failure.txt (verbatim).
+
+      Unlike scene 3, a restrained overlay IS allowed here: this segment is
+      demonstrating a behaviour, not serving as the unedited-execution proof.
+      The three callouts must never cover terminal text — they share one reserved
+      position in the right margin and appear one at a time. Still NO SFX over
+      the footage.
+
+      TO SWAP IN REAL FOOTAGE:
+        1. Overwrite assets/capture/seg4-failure.mp4.
+        2. RETIME the three callouts below to the moments they actually occur in
+           the recording — the placeholder times are guesses, not measurements.
+    -->
+    <template>
+      <div
+        data-composition-id="s4-failure"
+        data-width="1920"
+        data-height="1080"
+        data-duration="20"
+        data-layout-allow-overflow="true"
+        style="position: absolute; inset: 0; overflow: hidden; pointer-events: none"
+      >
+        <style>
+          [data-composition-id="s4-failure"] {
+            font-family: "Inter", sans-serif;
+          }
+          [data-composition-id="s4-failure"] .co {
+            position: absolute;
+            right: 64px;
+            top: 350px;
+            width: 600px;
+            border-left: 3px solid;
+            border-radius: 4px;
+            background: rgba(13, 17, 23, 0.9);
+            padding: 20px 26px;
+            opacity: 0;
+            visibility: hidden;
+          }
+          [data-composition-id="s4-failure"] .co .k {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 19px;
+            letter-spacing: 0.08em;
+            margin-bottom: 7px;
+          }
+          [data-composition-id="s4-failure"] .co .v {
+            font-size: 28px;
+            line-height: 1.42;
+            color: #e6edf3;
+          }
+          [data-composition-id="s4-failure"] #s4-c1 { border-color: #d4a017; }
+          [data-composition-id="s4-failure"] #s4-c1 .k { color: #d4a017; }
+          [data-composition-id="s4-failure"] #s4-c2 { border-color: #f85149; }
+          [data-composition-id="s4-failure"] #s4-c2 .k { color: #f85149; }
+          [data-composition-id="s4-failure"] #s4-c3 { border-color: #2ea043; }
+          [data-composition-id="s4-failure"] #s4-c3 .k { color: #2ea043; }
+        </style>
+
+        <div id="s4-c1" class="co">
+          <div class="k">FAULT INJECTION</div>
+          <div class="v">The Risk agent fails at its real call site.</div>
+        </div>
+
+        <div id="s4-c2" class="co">
+          <div class="k">DEGRADED</div>
+          <div class="v">The brief stays alive and announces the failure.</div>
+        </div>
+
+        <div id="s4-c3" class="co">
+          <div class="k">CITED FALLBACK</div>
+          <div class="v">Risk becomes a deterministic, cited line. The other agents still finish.</div>
+        </div>
+
+        <script>
+          window.__timelines = window.__timelines || {};
+          const s4 = gsap.timeline({ paused: true });
+
+          // RETIME THESE against the real recording — the defaults match the planned
+          // 20-second take. Only one callout is visible at a time.
+          const callout = (sel, at, outAt) => {
+            s4.fromTo(
+              sel,
+              { autoAlpha: 0, x: 26 },
+              { autoAlpha: 1, x: 0, duration: 0.45, ease: "power3.out" },
+              at,
+            );
+            s4.to(sel, { autoAlpha: 0, x: -12, duration: 0.35, ease: "power2.in" }, outAt);
+          };
+          callout("#s4-c1", 1.6, 6.4);
+          callout("#s4-c2", 6.8, 10.9);
+          callout("#s4-c3", 11.3, 18.7);
+
+          window.__timelines["s4-failure"] = s4;
+        </script>
+      </div>
+    </template>
+  </body>
+</html>

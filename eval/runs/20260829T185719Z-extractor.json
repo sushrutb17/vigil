@@ -1,0 +1,52 @@
+{
+  "baseline_metrics": {
+    "extractor_macro_f1": 0.05148256761159987,
+    "field_macro_f1": 0.17046305446661378,
+    "parse_coverage": 1.0,
+    "primary_problem_accuracy": 0.395,
+    "primary_problem_label_coverage": 0.09090909090909091,
+    "sample_size": 200.0
+  },
+  "candidate_dev": {
+    "extractor_macro_f1": 0.40989376636435454,
+    "field_macro_f1": 0.12066510983719289,
+    "parse_coverage": 1.0,
+    "primary_problem_accuracy": 0.6,
+    "primary_problem_label_coverage": 0.9090909090909091,
+    "sample_size": 200.0
+  },
+  "candidate_holdout": {
+    "extractor_macro_f1": 0.421923076923077,
+    "field_macro_f1": 0.19426896191602075,
+    "parse_coverage": 1.0,
+    "primary_problem_accuracy": 0.68,
+    "primary_problem_label_coverage": 0.7272727272727273,
+    "sample_size": 100.0
+  },
+  "candidate_version": "v2",
+  "guards": {
+    "failures": [],
+    "passed": true
+  },
+  "incumbent_dev": {
+    "extractor_macro_f1": 0.005640138104316199,
+    "field_macro_f1": 0.0844218498680741,
+    "parse_coverage": 1.0,
+    "primary_problem_accuracy": 0.105,
+    "primary_problem_label_coverage": 0.18181818181818182,
+    "sample_size": 200.0
+  },
+  "incumbent_holdout": {
+    "extractor_macro_f1": 0.008067226890756302,
+    "field_macro_f1": 0.1776439645625692,
+    "parse_coverage": 1.0,
+    "primary_problem_accuracy": 0.08,
+    "primary_problem_label_coverage": 0.18181818181818182,
+    "sample_size": 100.0
+  },
+  "incumbent_version": "v1",
+  "promoted": true,
+  "rationale": "The current instruction omitted 'primary_problem' from the required field list entirely and failed to specify the strict closed vocabularies for both 'primary_problem' and 'flight_phase'. As a result, the extractor returned free-form paraphrases (such as 'Approach' instead of 'Initial Approach'/'Final Approach', 'Takeoff' instead of 'Takeoff / Launch', and event descriptions for 'primary_problem') or missed the fields entirely.",
+  "reason": "promoted: dev +0.4043, holdout +0.4139",
+  "recorded_at": "2026-08-29T18:57:19.204036+00:00"
+}

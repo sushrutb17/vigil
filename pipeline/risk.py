@@ -78,6 +78,22 @@ def score_cluster(reports: Sequence[ASRSReport], policy: FrozenRiskPolicy) -> Ri
     )
 
 
+def severe_matches(
+    report: ASRSReport, policy: FrozenRiskPolicy
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Pure categorical check: which frozen severe-result/severe-event terms a
+    single report matches, sorted for deterministic output.
+
+    Used for severe-but-unclustered triage (T1-01,
+    docs/TIER1_ENHANCEMENTS_SPEC.md) -- never for cluster risk scoring.
+    ``score_cluster``'s frequency/trend terms describe a group of reports and
+    would obscure the actual single-report qualification rule.
+    """
+    matched_results = tuple(sorted(set(report.results) & policy.severe_results))
+    matched_events = tuple(sorted(set(report.anomaly_labels) & policy.severe_events))
+    return matched_results, matched_events
+
+
 def _trend_score(reports: Sequence[ASRSReport]) -> float:
     months = sorted(
         report.date_yyyymm

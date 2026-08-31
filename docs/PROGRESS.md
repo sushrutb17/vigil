@@ -6,6 +6,95 @@ for "what's actually verified working" vs. "what's built but untested."
 
 ---
 
+## 2026-08-29 (Sat night) — Phase 5 self-improvement loop, built and run live
+
+**Context:** Phase 5 had zero code — not even a stub — while every other phase was
+substantially done. It is also the one phase the user explicitly directed not to cut.
+Built it end to end and ran it against the real validation split.
+
+**Order of work, and why.** The loop needs an *objective function* before it needs an
+Evaluator, so Phase 3's "extractor eval vs coded fields" row had to land first. That
+made `eval/extractor_eval.py` the prerequisite, not a parallel task.
+
+**What the first real run found — the unflattering version first.** On a seeded
+200-row validation sample:
+
+| Prompt | dev macro-F1 | dev acc | holdout macro-F1 | holdout acc |
+|---|---|---|---|---|
+| majority-class + keyword baseline | 0.0515 | 0.395 | — | — |
+| extractor v1 | 0.0056 | 0.105 | 0.0081 | 0.080 |
+| extractor v2 (promoted) | 0.4099 | 0.600 | 0.4219 | 0.680 |
+
+**The v1 extractor was losing to a trivial baseline.** Majority-class + keyword rules
+beat the live LLM extractor roughly 9x on macro-F1. The cause, which the Evaluator
+diagnosed correctly from the confusion list alone, is that v1 never told the model the
+ASRS labels are a *closed vocabulary* — so it answered "Approach" where the coded value
+is "Initial Approach", "Takeoff" for "Takeoff / Launch", and free-text event
+descriptions for `primary_problem` (a field v1 omitted from its field list entirely).
+This is why EVAL.md insists on baselines: without one, "0.41" reads as a win from
+nothing rather than the repair of a regression.
+
+**The holdout gain exceeded the dev gain** (+0.4139 vs +0.4043). That is the opposite of
+the overfitting signature EVAL.md warns about, and it is the real evidence the revision
+fixed a defect rather than memorizing dev. Worth stating plainly in the video.
+
+**The field the loop did not optimize still trails its baseline.** `flight_phase`
+(`field_macro_f1`) improved 0.0844 → 0.1207 on dev, but the deterministic keyword
+baseline scores 0.1705. Reporting only `primary_problem` would hide that. Not fixing it
+now — it is a scope question, not a bug, and the honest number is more useful than a
+rushed second objective.
+
+**A guard fired, and the guard turned out to be wrong.** The 8-row smoke run blocked
+this same revision on `label_diversity_not_collapsed`. On inspection this was a metric
+bug, not a caught cheat: I had defined diversity as
+`distinct_predicted / distinct_expected`, which *rewarded* v1's free-text sprawl (19
+unique output strings across 8 reports → 2.33) and *punished* a candidate correctly
+constrained to the closed vocabulary (exactly 1.00), so the candidate failed
+`candidate >= 0.5 * incumbent`.
+
+Replaced it with **in-vocabulary label coverage** — the fraction of the real coded label
+space the predictions actually use, bounded to [0,1]. This *tightens* the guard against
+the hack EVAL.md actually names: a majority-label predictor on an 18-class field now
+scores ~0.06, well under the 0.15 floor, where the old ratio might have let it through.
+
+Recording this deliberately and at length, because "we changed a tripwire immediately
+after it blocked a promotion" is the single most self-serving-looking move in this
+project, and the audit trail is the only thing that separates a fixed metric from a
+rationalized one. **This is explicitly *not* the "caught our own agent cheating" demo
+beat from EVAL.md** — that beat needs a revision that genuinely gamed a metric, and
+claiming this one would be dishonest.
+
+**Design decisions worth keeping:**
+- `evaluate_extractor_guards` is **relative** ("must not degrade"), separate from the
+  existing absolute `evaluate_guards`. The absolute floors describe a finished system;
+  applied to a first revision they reject everything, and `dedup_precision` defaults to
+  0 for an extractor-only run, so the loop would have failed a guard on a metric it
+  never measured.
+- The holdout is consulted **only** after the candidate text is already fixed, and only
+  at the promote/discard decision. A guard failure or a non-positive dev gain
+  short-circuits before it is read — asserted by tests that make the holdout scorer
+  raise if it is called at all.
+- `eval/extractor_eval.py` takes `reports`, never a path, so `eval/holdout_score.py`
+  stays the only module that can name the locked split.
+- The architecture guardrail tests now parse an AST and strip docstrings before
+  scanning. These modules document their own guardrails at length, and a substring scan
+  cannot tell "writes config/frozen.yaml" from a docstring promising it never does.
+- `eval/runs/*.json` is now committed (a `.gitignore` exception). EVAL.md says the
+  improvement curve is generated from the ledger and never hand-drawn; a reviewer has to
+  be able to check the promotion against the numbers that produced it.
+
+**Cost:** 601 live Flash calls for one full iteration — 200 incumbent + 200 candidate
+on the dev sample, 1 Evaluator call, and 100 + 100 on the holdout for the two prompts.
+Worth knowing before re-running: the holdout half is only paid when a candidate has
+already cleared the guards and shown a dev gain.
+
+**Guardrails intact:** #2 (a promotion writes `config/prompts/`, never
+`config/frozen.yaml`), #3 (holdout read only through `holdout_score.py`), #7 (loop is
+offline and extractor-only; `REVISABLE == {"extractor"}` raises `KeyError` for any other
+agent, and no module in `pipeline/` may import the loop — both enforced by tests).
+
+---
+
 ## 2026-08-28 (Fri evening) — Status check + gate decision
 
 **Context:** Original plan called for a Day-7 gate on Aug 27. That didn't happen as a
@@ -445,6 +534,858 @@ All 14 tests pass, ruff clean, both new/changed modules import without
 credentials. Not yet run live — that's the next terminal step (`make run-live`
 again, now exercising the full pipeline including brief drafting for the 4
 escalated clusters found earlier).
+
+## 2026-08-29 (Sat, cont'd 9) — Full live agent graph verified end to end
+
+Ran the complete live pipeline on the real 5k slice. **All 4 escalated clusters
+got the full Coordinator+Critic sectioned brief (`## Hazard` / `## Precedent` /
+`## Risk Assessment` / `## Recommended Brief`), 0 DEGRADED** — meaning all three
+fan-out sub-agents succeeded on every escalated cluster, and the Critic pass ran
+clean. Non-escalated clusters correctly kept the cheap deterministic template.
+This closes the "single biggest gap between the architecture doc and the code"
+that PHASES.md has been flagging since the Aug 28 audit: the live ADK agent graph
+now actually runs in the operational batch path.
+
+**An unplanned validation of this morning's `frozen.yaml` fix:** the 4 clusters
+that escalated are "Airborne Traffic Conflicts and Near Midair Collisions," "VFR
+Traffic Conflicts and Near Midair Collisions," "Low-altitude encounters and
+collision risk with terrain/obstacles," and "Aircraft Cabin and Cockpit Fume and
+Odor Ingress." Those map directly onto the `Conflict NMAC` / `Conflict Airborne
+Conflict` / `Conflict Ground Conflict` values added to `severe_events` this
+morning. The corrected policy isn't just producing *some* escalations to make the
+threshold reachable — it's surfacing near-midair collisions as the top-ranked
+hazards in the batch, which is what "severe" ought to mean in aviation safety.
+Worth using as a demo beat: the system independently ranked NMAC clusters highest.
+
+Remaining before submission: Cloud Run deploy + live Firestore write (Phase 4 —
+the actual "deployed on GCP" Devpost requirement, and the largest remaining
+risk), UI Approve/Reject persistence, the DEGRADED demo path (needs a forced
+sub-agent failure to show), Phase 5 loop, video, Devpost draft, public repo push.
+
+## 2026-08-29 (Sat, cont'd 10) — Cloud Run deploy prep; three security findings fixed
+
+Reviewed `infra/` for the first time (it had never been run) and found several
+issues that would have caused a failed or unsafe first deploy.
+
+**Deploy-blocking / guardrail issues:**
+1. **No `.gcloudignore`.** `deploy.sh` uses `--source .`, so the upload would
+   have included `.venv` (594MB), `data/raw` (60MB), and **`data/holdout/`** —
+   baking the locked holdout into a container image. That is a guardrail #3
+   violation, not merely a size problem. Added, with the reason stated in the
+   file so a future reader does not "tidy it up."
+2. **Dockerfile was in `infra/`.** `gcloud run deploy --source .` only detects a
+   Dockerfile at the build-context root; with it in `infra/` gcloud silently
+   falls back to buildpack autodetection — no error, just a different and
+   (for a Streamlit entrypoint) wrong image. Moved to the repo root. This
+   deviates from the layout in CLAUDE.md/ARCHITECTURE.md, so `infra/README.md`
+   records why, including why the layout-preserving alternative (a
+   `cloudbuild.yaml` with `docker build -f`, plus manual Artifact Registry repo
+   creation and image tagging) was rejected: more moving parts and a second
+   failure surface on a step that has to work first try with ~2 days left.
+3. Dockerfile needed Streamlit's `headless` / `enableXsrfProtection=false` /
+   `$PORT` flags to work behind Cloud Run's TLS-terminating proxy.
+4. Caught one bug in my own first Dockerfile draft before it cost a build: I had
+   split dependency installation into an earlier layer for caching, but
+   `pyproject.toml` declares explicit packages, so `pip install .` fails unless
+   those directories are already present. Reverted to single-stage copy-then-
+   install and noted why, so the "optimization" is not reintroduced.
+
+**Three automated security review findings, all valid, all fixed:**
+- *No `.dockerignore`.* `.gcloudignore` governs only `gcloud run deploy`;
+  `docker build` reads `.dockerignore`, which did not exist — so a local
+  `docker build .` would have copied `.env` (the live Gemini API key) and
+  `data/holdout/` into the image. Worse, my Dockerfile comment asserted that
+  `.gcloudignore` protected the build context, which is false for the docker
+  path and would have discouraged a future reader from checking. Added
+  `.dockerignore` and corrected the comment to say both files are required for
+  different tools.
+- *API key passed via `--set-env-vars`.* Cloud Run env vars are readable by
+  anyone with project viewer access and persist in deployment history. Moved to
+  Secret Manager, mounted by reference with `--set-secrets`. (`printf '%s'`, not
+  `echo`, when writing the secret: a trailing newline in the payload would be
+  sent as part of the key and every model call would fail to authenticate.)
+- *Shared default compute service account.* Both workloads ran as the default
+  compute SA, which typically holds primitive **Editor** project-wide — meaning
+  the public `--allow-unauthenticated` Streamlit UI was effectively a project
+  editor, and any RCE/SSRF in Streamlit or app code would have yielded editor
+  credentials from the metadata server. This also **invalidated the previous
+  fix's claim** that "the UI gets no key at all": that was true only of
+  mounting; binding `secretAccessor` to the shared identity meant the UI's own
+  credentials could still read the key from Secret Manager. Now two dedicated
+  identities: `vigil-ui-run` with **zero** IAM roles (the UI only serves a
+  static artifact), `vigil-batch-run` with `secretAccessor` on that one secret
+  plus `roles/datastore.user`.
+
+Worth noting for the writeup: these three fixes are also *Architectural
+Discipline* evidence (30% of the rubric — "your engineering decisions, not just
+your ability to call an API"), not only hygiene.
+
+**Deployed-UI data strategy (a real decision, not a default):** the hosted UI
+serves `artifacts/demo_run.json`, a committed snapshot of an actual `--live` run
+over the real ASRS slice, rather than running the pipeline per pageview.
+Rationale: judging runs Sep 1 – Oct 1 and judges may open the URL at any point;
+a live-per-pageview UI would cost ~2 minutes of cold-start latency, real money
+per view, and would break if API quota or the key lapsed mid-window. The
+snapshot gives instant, free, deterministic real results — genuine model-written
+briefs over real data — while the live execution is what the video shows. The
+artifact is 91KB and is a deliberate `.gitignore` exception under `artifacts/*`,
+regenerable with `make artifact`.
+
+Also added: `run_batch --firestore` (selects `FirestoreStore`), and the UI now
+has a triage summary header, escalated-first queue ordering, and the
+Markdown brief download (Phase 6 item, done).
+
+Everything is committed and green (14/14 tests, ruff clean). Nothing has been
+deployed yet — `make deploy` is the next terminal step, and the first execution
+of `vigil-batch` will be the first time `FirestoreStore` has ever run.
+
+## 2026-08-29 (Sat, cont'd 11) — UI Approve/Reject now persists (Phase 1's last open row)
+
+Picked up the relay per KICKOFF_PROMPTS.md Prompt B/A: tree was already at a
+green checkpoint (14/14 tests, ruff clean) except two doc files from the
+planning session (`docs/HANDOFF.md`, `docs/KICKOFF_PROMPTS.md`) that were
+never committed — committed those first, plus gitignoring the local
+`.agents/`/`.claude/`/`.vscode/` harness config dirs.
+
+Then did the next unblocked critical-path item per Prompt A step 4: the UI's
+Approve/Reject buttons previously only touched `st.session_state` — nothing
+reached `MemoryStore`/Firestore, despite ARCHITECTURE.md requiring a
+`rejections/` collection feeding future Analyst prompts (this was flagged
+2026-08-29 as the best story-per-hour item: one click evidences both the 30%
+state-management criterion and the 40% learning-from-rejections criterion).
+
+Added two methods to `TriageStore` (`pipeline/store.py`):
+- `set_cluster_status(cluster_id, status)` — a **merge** update, not an
+  overwrite. Matters for the real deployment: the batch job already wrote
+  `clusters/<id>` with analyst output + risk score before a human ever opens
+  the UI; a naive `put_cluster` overwrite would have clobbered that.
+- `put_rejection(cluster_id, value)` — writes to `rejections/`, keyed by
+  cluster id.
+
+`ui/streamlit_app.py` now picks `FirestoreStore` when `GOOGLE_CLOUD_PROJECT`
+is set (same convention as `run_batch.py --firestore`) else `MemoryStore`,
+cached per session via `st.cache_resource` so a decision survives the
+rerun Streamlit does on every button click. Approve sets `status=approved`.
+Reject sets `status=rejected` and writes a rejection record (name, facets,
+member ACNs, brief text) as the negative example.
+
+Added `tests/test_store_decisions.py` (3 tests: merge-preserves-fields,
+creates-record-if-unseen, rejection-keyed-independently-of-cluster-status).
+17/17 tests pass, ruff clean. Not yet verified against a live Streamlit
+session or a real Firestore project — that's a `make ui` / post-deploy check,
+not a unit-test claim.
+
+PHASES.md Phase 1's last open row flipped to Done. Phase 3/4 rows (deploy)
+are next and are the only remaining unblocked critical-path items per Prompt
+A step 5 — they need `gcloud`/network, which this device_bash session
+doesn't have, so they're prepped as exact commands for the user to run in
+their own terminal rather than attempted here.
+
+## 2026-08-29 (Sat, cont'd 12) — deploy.sh's UI service account needed updating for the new Firestore writes
+
+Caught before running anything: the Approve/Reject persistence added above
+picks `FirestoreStore` whenever `GOOGLE_CLOUD_PROJECT` is set, but the
+existing `infra/deploy.sh` deliberately deployed `vigil-ui` with **zero** IAM
+roles and no `GOOGLE_CLOUD_PROJECT` env var (that was correct advice at the
+time it was written — the UI only read a static artifact). Left as-is, the
+deployed UI would have silently fallen back to a fresh in-memory store on
+every Cloud Run instance/restart: Approve/Reject would *look* like it worked
+in the browser and then vanish, which is worse than not persisting at all
+because a demo/judging session wouldn't catch it.
+
+Fixed `infra/deploy.sh`: `vigil-ui-run` now gets `roles/datastore.user` (not
+broader — still no `secretAccessor`, the UI never calls the model) and
+`gcloud run deploy vigil-ui` now passes `--set-env-vars
+GOOGLE_CLOUD_PROJECT=$GOOGLE_CLOUD_PROJECT`. Comments in the script and the
+Phase 4 PHASES.md row updated to match. Not yet run — this is still prep,
+same as the rest of Phase 4.
+
+## 2026-08-29 (Sat, cont'd 11) — First real Cloud Run deploy; three bugs only the live run could find
+
+**VIGIL is deployed and running on Google Cloud.** UI:
+https://vigil-ui-715230861973.us-central1.run.app · batch job `vigil-batch` ·
+project `vigil-hackathon-506218` · region `us-central1`. One job execution
+exercises all three mandatory stack components, and Firestore's `agent_log`
+is the receipt: analyst 789 tok/2.5s, precedent 859/2.6s, risk 883/3.8s,
+brief_writer 1289/5.0s, critic 2289/14.4s — all five agents, in the cloud.
+The escalated cluster came back named "Uncommanded Engine Shutdown During
+Landing Rollout" at risk 0.69: real model output, not the deterministic
+stand-in.
+
+### Getting there (environment friction worth not repeating)
+`gcloud` wasn't installed. The Homebrew cask fails on this machine
+(`Error: unknown install step: copy`), and the documented tarball name is
+`google-cloud-cli-darwin-arm.tar.gz`, **not** `-arm64.tar.gz` (that 404s and
+`curl -O` cheerfully saves the 404 page as a .tar.gz). Installed from the
+official tarball into the repo root, which then had to be excluded from
+`.gitignore`, `.gcloudignore`, **and** `.dockerignore` — ~250MB sitting
+directly in the path `--source .` uploads.
+
+The project ID is `vigil-hackathon-506218`, not `vigil-hackathon`. GCP
+appended the suffix because the bare ID was globally taken, and it reports the
+mismatch as *"caller does not have permission"* rather than *"not found"* —
+deliberate (it stops outsiders enumerating project IDs) but it reads like a
+billing/IAM problem and sends you the wrong way. Recorded in PHASES.md Phase 0
+so no one re-derives it.
+
+### Three bugs, none of which static review would have caught
+**1. `--args` parsing.** `deploy.sh` had
+`--args -m,pipeline.run_batch,...`; gcloud rejects it with "expected one
+argument" because the value's leading dash reads as a new flag. The `=` form
+binds it. `bash -n` passes either way — only the real binary objects. The
+`describe`-before-`create` idempotency guards earned their keep here: the run
+died *after* creating both service accounts, the secret, and the UI service,
+and the retry skipped all of them cleanly (`d0b47f5`).
+
+**2. Briefs reached no store at all.** Querying Firestore over REST rather
+than trusting the exit code showed `clusters/` documents with no `brief`
+field. Briefs are drafted in a *second pass*, after `triage_batch` has already
+written the cluster docs — so they only ever existed in stdout and the
+`--output` JSON. The demo masked this completely, because the UI reads the
+committed `artifacts/demo_run.json`. Added `put_cluster_brief` (a merge write,
+so it can't clobber the first pass's analyst output and risk score), plus
+`hazard_statement`, which ARCHITECTURE.md's `clusters/` spec asks for and only
+`name` was satisfying (`cb1f248`).
+
+Deliberately did **not** advance `status` to `"briefed"` despite the spec
+listing that value: `status` is doing double duty as the new/escalated signal
+behind the "NEW THIS RUN" badge and the dedup ledger, so setting it would make
+a freshly-briefed cluster indistinguishable from one already escalated on a
+prior run. Following the spec literally would have introduced a bug. Locked in
+by a test.
+
+**3. Two of three parallel agents were producing output guaranteed to be
+deleted.** The first live brief came back with empty `## Precedent` and
+`## Risk Assessment` sections *even though all three sub-agents succeeded*
+(no DEGRADED banner). Cause: `strip_uncited_claims` matches
+`\[ACN\s+\d{4,}\]` — square brackets required — and only
+`BRIEF_WRITER_INSTRUCTION` ever showed that form. Precedent asked for
+"ACN-cited observations" without specifying the format; `RISK_INSTRUCTION`
+didn't mention citations at all, so **100% of the Risk agent's output was
+stripped on every single run**. Tokens spent, nothing kept, no error — silent
+deletion is exactly what the gate is supposed to do, which is what hid it.
+
+This matters beyond tidiness: the parallel Coordinator fan-out is a judged
+architectural feature, and the video would have shown three agents running
+while only one's work reached the page. Fixed by making the prompts state the
+bracketed form (`f2fe88a`). Worth being clear that this *tightens* guardrail
+#4 rather than relaxing it — the gate is untouched and still deletes anything
+uncited; the agents are simply now told what compliance looks like. Same
+commit fixed `CRITIC_INSTRUCTION`, which asked for "the cleaned brief **and a
+list of removed claims**" while `live_draft_brief` uses the Critic's entire
+response verbatim as the brief — hence a stray `# Cleaned Brief` H1 landing in
+the reviewer-facing document. Two guard tests lock both invariants.
+
+### Verified for free: the dedup ledger works
+Re-running the job left `escalations` at exactly **one** document and flipped
+the cluster's status from `escalated` to `new` — `previously_escalated()`
+matched the prior run by member-set Jaccard >0.6 and declined to re-alert.
+That's the "runs repeatedly in the background without spamming a human"
+behavior, demonstrated against real Firestore. Worth ~5s of the video.
+
+(Naming wart noted, not changed: a cluster seen on a *previous* run ends up
+with `status: "new"`, which reads backwards — it really means "not escalated
+*this* run". The UI and badge depend on these strings, so renaming is a
+separate, tested change.)
+
+### Open, and ordered by what would hurt most to miss
+1. **`artifacts/demo_run.json` is stale** — and it is what the *deployed UI
+   serves*. Generated before `f2fe88a`, so the hosted briefs still show the
+   empty sections and the stray heading. Regenerate (`make run-live` →
+   `make artifact`), commit, redeploy `vigil-ui`. Until then the live URL
+   under-sells the system.
+2. **Approve/Reject unverified on the hosted UI** — unit-tested and the IAM is
+   right, but nobody has clicked the buttons and confirmed a `clusters/` status
+   change plus a `rejections/` document. It's the human-gate story the whole
+   design rests on.
+3. The deployed job runs `--demo` (6 reports), not real data, because
+   `data/raw` is correctly excluded from the image. Real-data runs are
+   currently local-only. Decide before recording: mount a slice from GCS, or
+   bake a larger fixture.
+4. Cloud Scheduler trigger; DEGRADED path demo; Phase 5 loop (still zero code).
+
+**Process note:** `gcloud run jobs execute` reruns the image already built. A
+code change needs `jobs deploy` first — that cost two wasted executions and a
+confusing "the fix didn't work" detour. Also, `deploy.sh` adds a new Secret
+Manager version on every run; when only application code changed, redeploy
+just the job rather than running the whole script.
+
+## 2026-08-29 (Sat, cont'd 12) — The bug the exit code could not show
+
+Redeployed the batch job so the `f2fe88a` prompt fix was actually in the image
+(`jobs deploy`, not just `jobs execute`), ran it, then read what execution
+`vigil-batch-dwpfp` wrote to Firestore over the REST API rather than trusting the
+"successfully completed" line.
+
+**The fix landed, half way.** `## Risk Assessment` came back with five cited
+bullets explaining each deterministic component, and the stray `# Cleaned Brief`
+H1 was gone. `## Precedent` was still an empty heading.
+
+The `agent_log` collection settled what was happening: `precedent` was *there*,
+spending 596–1,108 tokens per execution. It was succeeding and being deleted.
+There was also a purely deductive tell, before looking at the log at all — if
+the agent had raised, the fallback at `orchestrate.py:180` ("Precedent analysis
+unavailable this run. [ACN …]") would have fired, and it carries citations, so
+it would have survived the gate. We saw neither the agent's prose nor the
+fallback. Only one path produces that: success, then total deletion.
+
+Two separate causes, which is why the first fix only got half of it.
+
+**1. The demo fixture cannot produce a precedent.** `_precedent_candidates`
+excludes cluster members and requires a matching component. All six fixture
+reports share `component="Engine Control"` and all six are members of the one
+cluster, so the candidate list is *always* empty. The prompt then says
+"(none found in this batch)" and the only honest answer — "no comparable
+reports" — carries no ACN. We were paying a live Flash call per escalated
+cluster to ask a question with no possible answer, and deleting the reply.
+Now the call is skipped when there are no candidates and a deterministic cited
+line is used instead.
+
+This one is worth being precise about: the emptiness there is *semantically
+correct*. A cluster is not its own precedent. The tempting "fix" — letting
+`_precedent_candidates` include members — would manufacture a precedent out of
+the very reports the hazard is drawn from. Rejected.
+
+**2. The general defect.** `strip_uncited_claims` is line-based and always
+keeps headings (`critic.py:32`), so any section whose lines all lack citations
+survives as a heading with an empty body. Downstream that is byte-identical to
+a section whose agent never ran. The success path and the total-deletion path
+produce the same artifact — which is exactly why this stayed invisible across
+five live executions with a zero exit code every time. The existing per-section
+fallbacks could not catch it: they are chosen before assembly and only fire when
+a sub-agent *raised*. The new `_backfill_empty_sections` runs after the gate,
+the only point in the pipeline that can see what the gate actually removed, and
+restores a member-ACN-cited placeholder — so the repair passes the same gate it
+is repairing rather than smuggling an uncited claim in behind it. Guardrail #4
+is untouched; the gate still deletes everything uncited.
+
+A smaller consequence, caught while writing it: the DEGRADED banner keyed on
+`survived < 3`, counting survivors out of a hard-coded three. A deliberately
+skipped Precedent would have dropped that to 2 and stamped `DEGRADED` on a run
+in which every agent that was asked succeeded. Switched to counting failures
+against the number actually attempted.
+
+Both new tests were checked against the pre-fix source with `git stash` and do
+fail there — worth doing, because a test that asserts a section is non-empty is
+easy to write in a way that passes for the wrong reason. 23 tests, ruff clean.
+
+The transferable lesson is the same one from earlier today, sharpened: on this
+project the exit code carries almost no information. Every execution reported
+success while two of three parallel agents produced output that was always
+discarded. What can be trusted is the artifact that reached Firestore.
+
+## 2026-08-29 (Sat, cont'd 13) — A citation gate that checked shape, not provenance
+
+Regenerated `artifacts/demo_run.json` on the real 5k slice. The run itself was
+clean: 23 clusters, 4 escalated, all four with every section populated including
+Precedent, no DEGRADED banners, no stray headings. The empty-section fix from
+earlier today held, and Precedent produces real content on real data exactly as
+predicted.
+
+Then I read one of the briefs instead of just counting its sections.
+
+The top cluster's `## Risk Assessment` cited `[ACN 1000001]` through
+`[ACN 1000005]`. That cluster's members are 1044401, 1461959, 1640441, 1748192
+and 1799467. Checked the cited IDs against the source parquet: they appear in
+**none of the 38,655 reports**. The model fabricated them, and the deterministic
+citation gate — the thing guardrail #4 exists to enforce — kept every one.
+
+`ACN_CITATION` is `\[ACN\s+\d{4,}\]`. Any four-or-more-digit number satisfies
+it. The gate was enforcing *looks cited*, never *is sourced*. A hallucinated ID
+is indistinguishable from a real one to a regex.
+
+**A fabricated citation is worse than a missing one.** An uncited claim gets
+stripped and disappears. A fabricated citation survives and carries false
+authority into a document a human reviewer is meant to trust — and an
+investigator who pulls ACN 1000001 gets an unrelated report, or nothing.
+
+The root cause was self-inflicted, from this morning's `f2fe88a`. That commit
+fixed Risk producing output the gate always deleted, by telling the agent to
+cite "the ACNs supplied with the cluster." But `risk_message` supplies only
+`severity=..., frequency=..., trend=..., total=..., member count=N` — no ACNs at
+all, then or now. Told to cite and given nothing to cite from, the model invented
+the most obvious placeholder sequence there is: 1000001, 1000002, 1000003. Which
+happens to be exactly the demo fixture's ACN scheme (`1000000 + index`).
+
+Two fixes, because either alone is insufficient. Supplying the ACNs removes the
+incentive to invent, but nothing stops a model from inventing anyway. Validating
+provenance catches invention, but leaving the agent with nothing to cite would
+just mean everything gets stripped again.
+
+1. `risk_message` now supplies the cluster's member ACNs.
+2. `strip_uncited_claims` takes an optional `allowed_acns` allow-list. Invalid
+   citations are removed *surgically* — a claim that mixes genuine and invented
+   sources keeps the genuine ones and loses only the fabrications, rather than
+   being deleted wholesale — and a claim whose every source was invented is
+   dropped, since nothing supports it.
+
+The allow-list is deliberately **members plus the precedent candidates actually
+supplied to the agent**, not members alone. Precedent's entire job is to cite
+comparable reports from *outside* the cluster; a members-only allow-list would
+delete correct precedent work as fabrication. Verified this distinction against
+the parquet rather than assuming it: of the out-of-cluster ACNs in the artifact,
+1822957 / 1837816 / 1853717 / 1870632 / 1872334 / 1874093 / 1119182 / 1681937 /
+1777963 / 1814775 / 988233 are all real reports, while every 10000xx is not. The
+gate now cuts exactly the second group.
+
+Three of the four escalated briefs in the current artifact contain fabricated
+ACNs, so that file must be regenerated before it goes anywhere near the demo.
+
+Also fixed the reason the run failed the first time: `make run-live` never loaded
+`.env`, so a forgotten `set -a; source .env; set +a` failed inside ADK's first
+Analyst call, repeated once per cluster, several hundred lines of async traceback
+around one useful sentence — and only after the deterministic stages had already
+spent the time clustering 5,000 reports. The Makefile now loads `.env` when it
+exists and guards the live targets with a one-line `require-key` check.
+
+Verification snippet worth keeping, for checking any future artifact:
+
+```python
+import json
+from agents.critic import strip_uncited_claims
+for c in json.load(open("artifacts/demo_run.json")):
+    allowed = c["member_acns"]  # plus precedent candidates, for live briefs
+    r = strip_uncited_claims(c["brief"], allowed_acns=allowed)
+    if r.fabricated_citations:
+        print(c["name"], sorted(r.fabricated_citations))
+```
+
+Two bugs in one day found the same way, and neither was visible from an exit
+code, a test, or a section count. Both needed someone to read the actual output
+and ask whether the words were true.
+
+## 2026-08-29 (Sat, cont'd 14) — Artifact regenerated and verified clean; closing out today's citation-safety arc
+
+Final step of today's deploy-and-verify arc: regenerated `artifacts/demo_run.json`
+— the file the deployed `vigil-ui` actually serves — carrying all three fixes
+made today, and verified it before committing rather than trusting the exit code
+(the lesson from every other bug found today).
+
+**What shipped today, in decision order:**
+
+1. First live Cloud Run deploy of the full stack (Gemini/ADK + Cloud Run +
+   Firestore), catching three bugs invisible from any exit code: gcloud
+   `--args` parsing, briefs never reaching Firestore, and Precedent/Risk output
+   the citation gate silently deleted 100% of the time (`d0b47f5`, `cb1f248`,
+   `f2fe88a`).
+2. Reading what `f2fe88a` actually produced in Firestore found the fix was only
+   half-landed: Risk was fixed, Precedent was still empty, but the agent had
+   *succeeded* — the gate was deleting a fully successful sub-agent's output
+   because it always keeps headings, so an emptied section is byte-identical to
+   one whose agent never ran. Fixed with `_backfill_empty_sections` plus a
+   decision to skip the Precedent call entirely when the cluster has no
+   candidates (the demo fixture always falls in this case — a cluster cannot be
+   its own precedent) (`08adc32`).
+3. Regenerating the artifact on the real 5k slice surfaced a worse bug:
+   `[ACN 1000001]`-`[ACN 1000005]` fabricated by the Risk agent — invented
+   placeholders that appear in none of the 38,655 real reports — and the gate
+   kept them, because it validated citation *shape*, never *provenance*. Fixed
+   by supplying the Risk agent real ACNs to cite and adding an `allowed_acns`
+   allow-list to `strip_uncited_claims` that removes invalid citations
+   surgically rather than deleting the whole claim, and treats members-plus-
+   supplied-precedent-candidates as the valid set, not members alone, since
+   Precedent legitimately cites outside the cluster (`eb632e0`).
+4. Along the way: the Makefile never loaded `.env`, so a forgotten
+   `source .env` failed inside ADK's first Analyst call rather than up front
+   (`15aa2e7`); and `run-live`/`artifact` looked like a two-step pipeline but
+   are actually the same complete live run with different output destinations
+   — chaining them silently doubles the live-call count for one snapshot
+   (`e8261ee`).
+
+**Final verification, `4dedd8d`:** ran `make artifact` alone (not chained),
+then checked every cluster's cited ACNs against the full source parquet — zero
+fabricated citations, all 4 escalated briefs fully sectioned (Hazard/Precedent/
+Risk Assessment/Recommended Brief all non-empty), no DEGRADED banners, no stray
+headings. This is the artifact now committed and ready for `vigil-ui` to serve
+once redeployed.
+
+**Test count across the day: 21 -> 23 -> 26**, all green, ruff clean throughout.
+Every new test added today was confirmed to fail against the pre-fix source
+before being trusted as a real guard, not just a passing assertion.
+
+**Remaining before demo/submission**, per `docs/HANDOFF.md`: redeploy `vigil-ui`
+to serve the new artifact; click Approve/Reject on the hosted URL and confirm
+Firestore receives them; the 629-member megacluster's brief is an 18,000-
+character wall of citations that will look broken in the UI; Cloud Scheduler
+trigger; DEGRADED demo path; Phase 5 self-improvement loop (zero code yet, and
+per explicit user directive it is NOT to be cut from scope); video; Devpost
+submission; public GitHub push (deliberately last).
+
+## 2026-08-29 (Sat, cont'd 15) — Corrected artifact deployed; hosted human gate proven against Firestore
+
+Redeployed only the public UI service (not the full deploy script or batch job)
+from the clean `main` checkout after 26/26 tests and ruff passed. Cloud Run built
+revision `vigil-ui-00003-rvl`, routed 100% of traffic to it, retained the
+least-privilege `vigil-ui-run` service account and
+`GOOGLE_CLOUD_PROJECT=vigil-hackathon-506218`, and returned HTTP 200 at
+https://vigil-ui-715230861973.us-central1.run.app.
+
+Verified the actual rendered Streamlit page in a real browser rather than
+stopping at the health response: 23 clusters, 4 escalated, 816 reports, source
+label `real ASRS slice · live Gemini agents`, with the corrected fully cited
+brief visible. Then exercised the terminal human gate on two distinct clusters
+so the results could not overwrite one another:
+
+- approved `cluster-3b7525506162` (Unmanned Aircraft System (Drone) Airspace
+  Conflicts at Low Altitudes);
+- rejected `cluster-09f38566aef2` (Mid-Air Traffic Conflicts and Near Midair
+  Collisions).
+
+Direct Firestore REST reads—not Streamlit session state—confirmed `approved`
+and `rejected` in the corresponding `clusters/` documents and a complete
+10-report negative example at `rejections/cluster-09f38566aef2`. This closes
+the last unverified part of the human-approval story. Next critical-path item:
+create and verify the weekly Cloud Scheduler trigger for `vigil-batch`.
+
+## 2026-08-29 (Sat, cont'd 16) — Weekly scheduler path and current batch image verified live
+
+Enabled the Cloud Scheduler API and created `vigil-weekly-triage`, scheduled for
+Monday 09:00 `America/Toronto`. The trigger uses a new dedicated
+`vigil-scheduler-run` identity with `roles/run.invoker` bound on the
+`vigil-batch` job itself—not at project scope. It has no Firestore or Secret
+Manager role; those remain exclusive to the batch runtime identity.
+
+The first manual trigger calls were accepted in Cloud Audit Logs but produced no
+attempt while the just-enabled API and its managed service agent propagated.
+During that wait, redeployed `vigil-batch` from current `main`, closing the
+handoff warning that its image predated the empty-section and citation-
+provenance fixes. After propagation, Scheduler recorded an attempt at
+18:22:18Z and created execution `vigil-batch-pqm56` on image
+`sha256:d33cb6d4b4cd…`. It completed successfully in 2m23s.
+
+Verified the result at the final store, not just the execution status:
+Firestore `clusters/cluster-83a8bcac2a95` contains all four sections (Hazard,
+Precedent, Risk Assessment, Recommended Brief) and its only citations are the
+six fixture sources `[ACN 1000001]` through `[ACN 1000006]`. The cluster is
+`new`, as expected from the already-verified escalation dedup ledger.
+
+Made the cloud state reproducible in `infra/deploy.sh`: it now ensures the
+dedicated scheduler account, grants job-level invoker, and idempotently creates
+or updates the JSON POST trigger. Deploying does not execute it automatically.
+
+## 2026-08-30 (Sun) — T1-01 severe-but-unclustered queue, implemented and tested
+
+Post-submission work, requested directly: implement the first Tier 1 enhancement
+from `docs/FUTURE_ENHANCEMENTS.md` / `docs/TIER1_ENHANCEMENTS_SPEC.md`
+(Codex's docs-collateral spec, section 6) end to end. Not on the critical path
+to the Aug 31 deadline -- that was already submission-ready (deploy, GitHub
+push, video, and Devpost submission were the only things left, all manual).
+
+The gap this closes: the measured noise fraction is 0.837 -- roughly 4 in 5
+reports in the real 5k slice fall into HDBSCAN noise and, before this change,
+never appeared anywhere in the UI. A one-off catastrophic report is exactly
+what ASRS exists to catch, and clustering was silently acting as a filter, not
+just a lens.
+
+What changed:
+- `pipeline/models.py`: new `EvidenceRecord` and `SevereSingleton` frozen
+  dataclasses.
+- `pipeline/risk.py`: new `severe_matches(report, policy)` -- a pure
+  categorical check against the frozen severe-result/severe-event vocabulary.
+  Deliberately not `score_cluster`, whose frequency/trend terms describe a
+  group and would obscure a single report's actual qualification rule.
+- `pipeline/run_batch.py`: `run_batch()` is now a thin wrapper over a new
+  `run_triage()`, which carries `Cluster.noise` explicitly (rather than the
+  `noise-` id-prefix check scattered around before) and skips
+  `assess_cluster` entirely for noise. That matters in `--live` mode: before
+  this change, the single "noise" pseudo-cluster HDBSCAN produces at real
+  scale went through the same live Analyst call as every real cluster --
+  spending a real Gemini call to name a bucket of unrelated one-off reports
+  that never surfaced in the UI as a cluster anyway. New
+  `find_severe_singletons()` flags noise reports against `severe_matches` and
+  sorts them by report month descending then ACN ascending (missing months
+  last, per the spec). New `build_artifact_payload()` assembles the artifact
+  as a versioned object (`schema_version: 2`, `run` metadata including
+  `reports_triaged` -- the full input count, not just visible queue members --
+  plus `clusters` and `severe_singletons`).
+- `ui/streamlit_app.py`: the loader now accepts both the new schema and the
+  legacy top-level list a pre-T1-01 artifact used (a fresh clone or the
+  currently-committed `artifacts/demo_run.json` -- still schema v1 until
+  `make artifact` is rerun with live credentials -- keeps working, with an
+  empty singleton queue and a derived `reports_triaged`), and raises loudly on
+  an unrecognized future schema version rather than silently misreading it. A
+  new "Severe singletons" sidebar queue appears only when non-empty, with the
+  matched severe terms and an evidence panel (narrative excerpt, phase,
+  component, month, labels). Deliberately no Analyst name, hazard statement,
+  risk score, or brief for a singleton -- it's a source report surfaced for
+  human review, not a fabricated one-report cluster.
+
+Verification: `tests/test_severe_singletons.py` (13 tests covering every
+bullet in the spec's required-tests list, including the literal acceptance
+scenario -- a fixture with a real cluster, a severe noise report, and a
+non-severe noise report showing exactly one singleton) plus
+`tests/test_streamlit_app.py` (Streamlit's own `AppTest` API, no browser --
+confirms the queue actually renders, is selectable, and disappears entirely
+when there are no singletons, not just that the loader returns the right
+Python values). Also ran `python -m pipeline.run_batch --demo --output ...`
+end to end and inspected the real JSON output, and ran three ad hoc UI-loader
+checks (v2 artifact, legacy v1 list, and an unknown future version correctly
+raising). Full suite: 68/68 pass, ruff clean.
+
+Not done: the committed `artifacts/demo_run.json` is not regenerated -- that
+needs live Gemini credentials and network this session doesn't have; the
+loader's legacy-list fallback means the deployed UI keeps working as-is
+(0 singletons shown) until someone runs `make artifact` for real. T1-02/T1-03
+(full)/T1-04 remain open, per `docs/PHASES.md` Phase 8.
+
+## 2026-08-29/30 — T1-03 (edit-before-approve, required rejection reason) and
+T1-04 (cross-run hazard identity and history), implemented and tested end to end
+
+Continuing the Tier 1 roadmap (`docs/TIER1_ENHANCEMENTS_SPEC.md` sections 8-9)
+after T1-01 and T1-02. Both remaining items landed in one pass since T1-04's
+`record_hazard_observation` call sits directly in `run_triage`'s existing
+per-cluster loop, next to T1-03's store methods.
+
+**T1-03.** `pipeline/store.py` gained `record_approval`/`record_rejection` on
+both `MemoryStore` and `FirestoreStore`, replacing the UI's old two-call
+`set_cluster_status` + `put_rejection` sequence (kept, unused by the UI now,
+per the spec's explicit "don't mix a compatibility removal into Tier 1").
+Reason validation (`_clean_rejection_reason`: blank-after-trim or over 2,000
+chars raises `RejectionReasonError`) is shared by both store implementations
+so neither can drift from the other's notion of valid. `FirestoreStore.
+record_rejection` writes the status flip and the rejection record in one
+`batch()` — atomic by construction, since a batch's `set()` calls only queue
+writes locally and nothing reaches Firestore until `commit()`.
+`ui/streamlit_app.py` replaced the always-visible read-only brief + unconditional
+download with an editable `st.text_area` (state preserved across reruns via a
+stable widget key independent of the evidence selector), a required rejection-
+reason box, and two new pure functions — `evaluate_approval` (re-runs the
+existing deterministic citation gate from `agents/critic.py` against the edited
+text; guardrail #4 makes no exception for a human edit) and
+`build_rejection_value` — so the decision logic is unit-testable without a
+browser. Approval and rejection are now terminal per Streamlit session: once
+decided, the editor and buttons are gone, replaced by the immutable outcome and
+(for approval only) a download button whose bytes are `brief_approved`, not the
+original draft.
+
+**T1-04.** New `HazardObservation`/`HazardRecord` dataclasses
+(`pipeline/models.py`). New `pipeline.store.match_hazard` (pure: Jaccard
+similarity strictly greater than 0.6 to qualify, ties broken by
+lexicographically smallest `hazard_id`) plus `record_hazard_observation` on
+both stores. `MemoryStore`'s version is a straightforward dict; `FirestoreStore`'s
+runs the match-and-write inside one `@firestore.transactional` function so a
+retried transaction re-reads current state instead of replaying stale writes.
+`run_triage` now generates (or accepts) a `run_id`/`run_at` pair once via new
+`new_run_context()` and records one hazard observation per non-noise
+assessment — escalated or not, matching the spec's "every non-noise cluster
+gets a hazard ID" requirement — returning a third dict (`hazard_id ->
+HazardRecord`) that `main()` threads into the same artifact's `build_
+artifact_payload` call so the hazard observation and the artifact it ends up
+embedded in always key off the same run. `ui/streamlit_app.py` renders a
+"Seen in N runs · 12 → 19 → 31 reports" summary, a member-count sparkline via
+`st.line_chart`, and an expandable observation table once a cluster has 2+
+observations; a single-observation cluster renders "First observed run"
+instead, per spec.
+
+**Verification.** `tests/test_store_decisions.py` (extended, +9 tests: approval/
+rejection field preservation, the 2,000-char boundary, trimming, a mocked-batch
+proof that a `commit()` failure leaves neither the status flip nor the
+rejection record applied), new `tests/test_ui_decisions.py` (11 tests: the
+pure helpers plus a full Streamlit `AppTest` pass — seeded editor, blocked
+uncited/fabricated-citation approval with the editor staying open, a valid
+edit becoming terminal with the right download label, blocked blank-reason
+rejection, and a valid rejection showing its reason), new
+`tests/test_hazard_history.py` (15 tests: matching threshold/tie-break rules,
+idempotent same-`run_id` replay, cumulative-union prevention, chronological
+history ordering under out-of-order inserts, noise/below-threshold hazard-ID
+behavior, risk-score isolation, per-`MemoryStore`-instance isolation, and two
+`AppTest` views). Full suite: **116/116 pass, ruff clean.**
+
+**The Firestore emulator run the spec calls mandatory (section 12) actually
+happened, not just the offline-mockable parts.** Installed the emulator via
+the bundled `google-cloud-sdk` (`gcloud components install
+cloud-firestore-emulator` — this session had network access), ran it on
+`localhost:8080`, and added `tests/test_firestore_emulator.py` (skipped unless
+`FIRESTORE_EMULATOR_HOST` is set, so the default suite needs neither Java nor
+the emulator): 6 tests against a *live* Firestore, all passing —
+`record_rejection`'s atomic batch write and its merge-not-overwrite semantics,
+an invalid reason leaving genuinely nothing written, `record_approval`'s
+merge, and — the two that a mock cannot prove — a hazard observation written
+by one `FirestoreStore` instance visible to a second instance pointed at the
+same project (real cross-process persistence), and replaying the same
+`run_id` from a second instance producing zero duplicate observation
+documents (real transactional idempotency, not a mocked retry). Also ran
+`run_triage` twice by hand against one shared `MemoryStore` with the real
+6-report demo fixture, overlapping members, two different `run_id`s: exactly
+one hazard, two ordered observations after the second run, and repeating the
+second `run_id` a third time left `observation_count` at 2 — the literal T1-04
+9.6 acceptance scenario, reproduced live, not just asserted in a unit test.
+
+**Not done / honest gaps:**
+- The "manual human-gate smoke" row in section 12's verification matrix (edit
+  a cited line, try an uncited line, approve, reject with a reason) was
+  exercised through the automated `AppTest` suite above rather than a literal
+  hand-driven browser session — same substitution T1-01/T1-02 made for their
+  own live-UI proofs, and for the same reason: no way to drive a real browser
+  against a locally running `streamlit run` in this environment. The AppTest
+  scripts click the actual buttons and read the actual rendered validation
+  text, so the behavior proven is the same; only the input device differs.
+- `artifacts/demo_run.json` is still unregenerated (schema v1, no evidence or
+  hazard data) — same live-credentials gap every prior Tier 1 entry has
+  flagged. A fresh `--live` run would also be the first real demonstration of
+  T1-04's cross-run history against genuine weekly-cadence data rather than a
+  same-process double-run.
+- Tier 1 is now feature-complete (T1-01 through T1-04 all ✅ Done), but nobody
+  has run the full `docs/TIER1_ENHANCEMENTS_SPEC.md` section 13 sign-off
+  checklist as one pass end to end.
+
+## 2026-08-30 (cont'd) — Closed every remaining "not yet verified live" gap: real
+artifact regeneration, real precedent citations, real cross-run history, real browser
+
+The previous entry closed T1-03/T1-04 functionally but left the honest gaps every
+Tier 1 entry had been carrying forward: `artifacts/demo_run.json` still unregenerated,
+T1-02's precedent-evidence acceptance criterion only proven by synthetic fixtures,
+T1-04's history only shown via a same-process double call, and the "manual human-gate
+smoke" done through `AppTest` rather than a literal browser. Asked directly to close
+these out, and this session actually had what was needed: `GOOGLE_API_KEY` in `.env`,
+the real dataset already downloaded, and network access.
+
+**What actually ran, twice, for real:**
+```
+GOOGLE_CLOUD_PROJECT=vigil-live-demo FIRESTORE_EMULATOR_HOST=localhost:8080 \
+  uv run python -m pipeline.run_batch --dataset data/raw/default/train/0000.parquet \
+  --slice 5000 --live --firestore --output artifacts/demo_run.json
+```
+Both runs went through the real Analyst/Coordinator/Critic agents against Gemini
+(clustering itself stays free/local -- TF-IDF + SVD + seeded HDBSCAN, no embedding
+API call, guardrail #1 intact) and persisted to a **local Firestore emulator**
+(installed this session via the bundled `google-cloud-sdk`), never a production
+project, so this cost real (small, bounded -- roughly the ~39-call `make artifact`
+figure from earlier handoffs, times two) API spend but touched no shared
+infrastructure.
+
+**Results, inspected directly, not just asserted by a test:**
+- 23 clusters, 4 escalated, **1,328 severe singletons** (T1-01's queue was showing
+  zero on the deployed snapshot until now -- the whole point of that feature).
+- Zero `DEGRADED` briefs, zero unresolved citations, largest brief 4,571 characters.
+- **Two of the four escalated clusters carry real precedent evidence** ("Cabin and
+  flight deck odor..." with 6 precedent ACNs, "Airborne and Terminal Area Traffic
+  Conflicts" with 9) -- T1-02 section 7.4's "at least one real cluster with precedent
+  evidence" criterion, previously only exercised by hand-built fixtures in
+  `tests/test_evidence.py`.
+- Every one of the 23 clusters carries `hazard_history` with **2 real, chronologically
+  ordered observations** from the two actual live runs -- not a mocked retry, not a
+  same-process double call.
+- `artifacts/demo_run.json`: **79,053 -> 2,506,268 bytes**, schema v1 -> v2. Loads and
+  renders in 0.43s in a headless `AppTest` pass -- still practical.
+
+**A file-sync race worth recording.** The first attempt to copy the new artifact into
+place got silently reverted back to the old committed bytes by something outside
+git within about a minute (this repo's working directory lives in a path that's
+almost certainly under some external sync mechanism, consistent with CLAUDE.md's own
+description of the repo being shared in relay across multiple accounts/machines).
+`git status` before the revert was clean and showed no reset/checkout in the reflog --
+the working-tree file was overwritten out from under git without git's involvement.
+Recovery was immediate: re-copy, `git add`, commit right away. A committed file
+matching HEAD has stayed stable since; the lesson is to commit generated artifacts
+promptly rather than trusting a `cp` to survive uncommitted for long in this checkout.
+
+**The manual human-gate smoke test happened in an actual browser**, closing the one
+substitution every Tier 1 entry had made so far. No `chromium-cli` in this
+environment, so: started the real Streamlit server (`streamlit run
+ui/streamlit_app.py`), installed Playwright + Chromium in a scratch npm project (not
+added to the repo's own dependencies), and drove it with a small script against
+`http://localhost:8501`. All 7 steps passed against the newly regenerated live
+artifact, zero browser console errors:
+1. Editor seeded with the original live-drafted draft (2,980 chars).
+2. Added an uncited line, clicked Approve -> blocked, exact validation message shown,
+   editor stayed open.
+3. Fixed the edit to a valid cited wording change, clicked Approve -> terminal state,
+   approved-download button appeared, editor gone.
+4. Opened a second escalated cluster, clicked Reject with a blank reason -> blocked.
+5. Typed a real reason, clicked Reject -> terminal state, the exact reason text
+   rendered on the page.
+
+Screenshots exist in the session's scratch directory as evidence but were not
+committed to the repo -- verification artifacts, not a deliverable.
+
+**Still genuinely open:** nobody has redeployed the Cloud Run UI to serve this
+regenerated artifact -- that's the user's own action per standing preference, not a
+gap in the work itself. Tier 1 is now Done with every acceptance criterion backed by
+a real run, not a synthetic stand-in.
+
+## 2026-08-30 (Sun) — Shipped to production: deployed, pushed public, and four docs that had drifted false
+
+**Context:** Tier 1 was complete and verified locally, but nothing had shipped. The
+deployed revision predated all of it, the repo had never been pushed, and a
+second agent's status review needed cross-checking. Everything below came out of
+verifying claims by *running* them rather than reading them.
+
+**The status review was mostly right and mis-ordered.** It bucketed work by
+priority label (P0/P1/P2), which hid the actual constraint: three items filed as
+"release-quality polish" were hard blockers on P0 work. `DEMO_SCRIPT.md` told the
+presenter not to show clustering and Critic metrics because they "were never run"
+-- they had been run, and `eval/runs/20260829T192117Z-offline.json` holds a Critic
+catch rate of 1.000 with legitimate-claim retention 1.000. The script was
+suppressing the strongest number in the project. Rewrote `PROJECT_STATUS.md` as a
+dependency graph instead of a priority list. One item the review listed as open
+(how to present the 0.837 noise fraction) was already decided and written up in
+both README and the Devpost draft; reopening a settled honesty decision hours
+before a deadline is the risk, not leaving it.
+
+**The nested `vigil-docs` worktree leaked through three exclusion mechanisms at
+once.** `.gitignore`, `.gcloudignore` and `.dockerignore` are read by three
+different tools, and all three predate the worktree, so a directory created later
+is invisible to all of them simultaneously -- the repo's own comments show the
+author knew they had to stay in sync, but sync discipline can't cover a file added
+afterward. Two consequences, only one of which was on the review's list: `git add .`
+does not refuse an embedded repo, it *warns and stages a gitlink*, so the public
+repo would have carried a dangling 581MB submodule pointer; and `gcloud run deploy
+--source .` would have uploaded that 581MB to Cloud Build and `COPY . .`-ed it into
+the image. Moved the worktree to the path git already had registered (which also
+un-pruned it) and added the entry to all three files.
+
+**README's least-privilege claim had silently become false.** It stated `vigil-ui`
+holds "no IAM roles at all ... no Firestore". True when written; untrue since T1-03
+started persisting analyst decisions, which required `roles/datastore.user`. A
+false *security* claim in a judged document, about to be published. The honest
+version is still a good story -- no `secretAccessor`, so the public surface cannot
+reach the Gemini key or make a model call -- it just had to be the real one.
+
+**The one command the README dares a judge to run did not work.** Under "you can
+watch that work instead of taking our word for it", it printed
+`python -m pipeline.run_batch --demo --live --fail-agent risk`. There is no bare
+`python` on PATH here; the project runs through uv. Worse, the `GOOGLE_API_KEY`
+guard lived only in the Makefile's `require-key` target, so `make run-live` and
+`make artifact` failed politely while the directly-invoked form -- the advertised
+one -- crashed inside ADK's client construction across three worker threads and
+buried "No API key was provided" in ~700 lines of traceback. Fixed the command
+form in README/DEVPOST/PHASES and moved the guard into `run_batch.main()`, which
+covers every invocation path rather than just the make ones. Verified: 700 lines
+before, 4 after. **The general lesson**: docs that record what was run on a day
+when the venv happened to be active quietly become instructions that don't work in
+a fresh shell. Left HANDOFF/PROGRESS untouched -- append-only history of what was
+actually typed should not be rewritten to look correct.
+
+**Cold start makes the deployed UI look broken.** First verification screenshot of
+the new revision showed an empty "Investigator draft" column and Streamlit's Stop
+button still visible. Not a bug: `--min-instances 0` means the first request after
+idle boots a container, and Streamlit paints top-to-bottom over a websocket, so the
+header lands while the right column is still executing. Warm, the page completes in
+3.8s. Keeping min-instances at 0 is correct (it's what lets the service stay up all
+month for nearly nothing), but the URL must be loaded once before recording --
+10 seconds of blank column on camera reads as a broken app, not a cost decision.
+
+**Shipped.** Redeployed to `vigil-ui-00004-vsw`, verified from a clean
+unauthenticated Chromium context (which doubles as the logged-out-judge access
+check rather than a signed-in session that proves less): 23 clusters / 4 escalated
+/ 1,328 severe singletons / 5,000 reports triaged, all four Tier 1 features
+rendering, zero console errors. Pushed to **https://github.com/sushrutb17/vigil**,
+then audited the result against a fresh clone rather than trusting `.gitignore`:
+81 files, no credentials, no worktree, no SDK, no raw or holdout data, with the
+2.5MB artifact, both diagrams and both eval ledgers present. Cloned it clean and
+ran `make demo` end to end with no `.env` and no `data/raw` -- the path a judge
+actually takes.
+
+**Failure-tolerance clip verified before recording it:** 11s wall, exit 0, brief
+carries `DEGRADED`, `## Risk Assessment` fell back to its cited deterministic line,
+`## Recommended Brief` stayed model-authored. Two things only running it surfaces:
+the key must be exported in the *same shell* as the run, and the command prints
+nothing for those 11 seconds -- silent, not hung, and 11s of dead terminal is
+material against a four-minute budget.
+
+**Still open:** the video (record, upload public), the Devpost form, and gallery
+confirmation. No engineering remains on the critical path.
 
 <!-- Add a new dated section above this line each time we make a decision, ship a
      feature, or change status. Keep entries short: what changed, what's verified,

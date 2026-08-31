@@ -1,0 +1,21 @@
+{
+  "clustering": {
+    "adjusted_rand_vs_events_anomaly": 0.0017961718859613091,
+    "cluster_count": 23.0,
+    "median_cluster_size": 8.0,
+    "noise_fraction": 0.8369347739095638,
+    "noise_fraction_guard_limit": 0.4,
+    "noise_fraction_guard_passed": 0.0,
+    "purity_majority_class_baseline": 0.21948779511804722,
+    "purity_vs_events_anomaly": 0.3006134969325153,
+    "scored_reports": 4998.0
+  },
+  "critic": {
+    "legitimate_claim_retention": 1.0,
+    "seeded_claims": 400.0,
+    "uncited_and_fabricated_catch_rate": 1.0
+  },
+  "recorded_at": "2026-08-29T19:21:14.815937+00:00",
+  "seed": 42,
+  "slice": 5000
+}

@@ -16,9 +16,9 @@
 |---|---|
 | `acn_num_ACN` | Primary key; the citation unit for briefs |
 | `Report 1_Narrative` | Main free text → extraction + embedding input |
-| `Report 2_Narrative` | Second reporter, **same event** → labelled dedup pairs, free |
+| `Report 2_Narrative` | Second reporter, **same event** → was to give free labelled dedup pairs. ⚠ **Not used:** the Dedup stage was cut, because ASRS already pre-merges Report 1/Report 2 into one row per ACN, so there is no runtime dedup work. Present on 23.6% of rows (verified). |
 | `Report 1.2_Synopsis` | NASA expert summary → brief/summary eval ground truth (ROUGE + coverage) |
-| `Report 1.1_Callback` / `Report 2.1_Callback` | Analyst follow-up notes → precedent RAG enrichment |
+| `Report 1.1_Callback` / `Report 2.1_Callback` | Analyst follow-up notes → precedent RAG enrichment. ⚠ **Not used:** Precedent retrieves over the current batch by component, not a full-corpus index. |
 | `Events_Anomaly` | Coded event type(s), `;`-separated → cluster purity labels |
 | `Assessments.1_Primary Problem` | Root-cause label → extractor eval target |
 | `Assessments_Contributing Factors / Situations` | Multi-label → extractor eval target |

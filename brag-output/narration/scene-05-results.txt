@@ -1,0 +1,3 @@
+Okay, let's look at the results. The citation check worked as intended: it caught every test claim with a missing or fake report number, and it kept the valid ones.
+
+The grouping test did not go as well. The groups lined up with NASA's categories only about thirty percent, and eighty-four percent of reports could not be grouped at all. That is more than twice our limit. We are showing this because the clustering still needs work.

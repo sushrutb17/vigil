@@ -1,0 +1,40 @@
+# Controls what `gcloud run deploy --source .` uploads to Cloud Build.
+# Without this file gcloud falls back to .gitignore semantics only partially,
+# and the 594MB .venv plus 60MB of Parquet would be uploaded on every deploy.
+
+.git/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# GUARDRAIL #3: the locked holdout must never ship inside a container image.
+# Only eval/holdout_score.py may read it, and that runs locally, never on
+# Cloud Run. data/raw is excluded too: the deployed UI reads the committed
+# artifacts/demo_run.json instead of re-deriving results from raw Parquet.
+data/holdout/
+data/raw/
+data/cache/
+
+# Local-only files.
+.env
+.DS_Store
+eval/runs/
+*.log
+AGENTS.md
+CLAUDE.md
+ac-ai-assistant.md
+
+# The gcloud CLI was installed into the repo root (the Homebrew cask failed;
+# the official tarball extracts in place). It is ~250MB unpacked and must never
+# be uploaded to Cloud Build as part of the source context.
+google-cloud-sdk/
+google-cloud-cli-*.tar.gz
+
+# The `docs-collateral` git worktree. It briefly lived at the repo root, where
+# nothing excluded it: 581MB (mostly its own .venv) would have been uploaded to
+# Cloud Build and then COPYied into the image. Moved out to /Users/sush/vigil-docs
+# on 2026-08-30; this entry is here so re-creating it at the root is harmless.
+vigil-docs/

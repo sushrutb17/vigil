@@ -36,7 +36,10 @@ def build_agent_graph(models_path: Path = Path("config/models.yaml")) -> dict[st
     extractor = LlmAgent(
         name="extractor",
         model=flash,
-        instruction=prompts.EXTRACTOR_INSTRUCTION,
+        # The one instruction the offline loop may replace; everything else
+        # below is source-pinned. Falls back to the in-source constant when
+        # config/prompts/ is absent, so a fresh clone still builds a graph.
+        instruction=prompts.load_instruction("extractor"),
         output_schema=contracts.ExtractionOutput,
     )
     dedup = LlmAgent(

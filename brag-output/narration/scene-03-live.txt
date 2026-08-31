@@ -1,0 +1,80 @@
+SCENE 3 — LIVE EXECUTION + GCP PROOF
+Presenter run sheet · target 85 seconds · one continuous screen recording
+
+HOW TO USE THIS FILE
+
+- Read only the lines beginning with "SAY". Everything in square brackets is a
+  silent screen direction.
+- Keep this file open beside the demo, but use Command-Shift-5 → Record Selected
+  Portion and frame only the Terminal/browser side. The script must not appear
+  in the captured picture.
+- Prepare the tabs before recording in this order: Cloud Run Jobs, Firestore
+  agent_log query, Firestore collections, Cloud Scheduler, deployed dashboard.
+- Warm the dashboard fully before the take. Keep the entire picture take
+  continuous: tab switches and scrolling are allowed; editorial cuts are not.
+- If the Cloud Run job is still finishing while you move through the tabs, that
+  is fine. The command continues running in Terminal while the browser is in
+  front.
+
+[00:00–00:10 · TERMINAL]
+[Show the complete command, project and region. Start it, then switch to the
+pre-opened Cloud Run Jobs tab.]
+
+SAY: This job normally starts from a weekly Cloud Scheduler trigger. For the
+demo, I'm starting the same Cloud Run batch job by hand.
+
+[00:10–00:24 · CLOUD RUN EXECUTION]
+[Cloud Run → Jobs → vigil-batch. Open the newest execution. Show its execution
+name, us-central1 region, status and 1-task progress. Click View Logs and let the
+execution-filtered log entries remain visible.]
+
+SAY: The live run uses Gemini 3.7 Flash through Google ADK. Each agent call
+records its agent name, model, token count, and latency in Firestore.
+
+[00:24–00:38 · FIRESTORE AGENT LOG]
+[Open the (default) database → Firestore Studio → Query Builder. Query collection
+agent_log, ordered by created_at descending. Refresh or run the query, open the
+newest document and hold on the agent, model, tokens, latency_ms and created_at
+fields. Make gemini-3.7-flash legible.]
+
+SAY: Here is the Cloud Run execution, and here are the Firestore agent-log
+documents written by that run.
+
+[00:38–00:49 · FIRESTORE COLLECTIONS]
+[In the second Firestore tab, show the collection list: agent_log, clusters,
+escalations, hazards and reports. Open clusters, select one document, and show
+its risk, status and brief fields. Do not edit anything.]
+
+[00:49–00:56 · CLOUD SCHEDULER]
+[Open vigil-weekly-triage. Show Enabled, schedule 0 9 * * 1, timezone
+America/Toronto and the HTTP target ending in /jobs/vigil-batch:run. Hold the
+settled configuration for at least three seconds. Do not click Force run.]
+
+SAY: This is the weekly Scheduler configuration that normally starts it
+unattended.
+
+[00:56–01:08 · DEPLOYED DASHBOARD]
+[Switch to the warmed .run.app dashboard. Keep the URL visible. Show the
+five-thousand-report summary, then select an escalated hazard cluster with the
+NEW THIS RUN banner.]
+
+SAY: That job is running the full agent graph in the cloud on a small fixture — that's
+the live proof. The dashboard serves a committed snapshot of a real
+five-thousand-report run, so it loads instantly for you without a model call per
+page view, and without depending on my API quota surviving the judging window.
+Same pipeline, same code, bigger slice.
+
+[01:08–01:25 · EVIDENCE + HUMAN GATE]
+[Show the Evidence selector and an ACN-backed source. In Edit draft (Markdown),
+append "Immediate operational intervention is required." without a citation.
+Click Approve draft and show the blocked message. Delete or undo that sentence,
+click Approve draft again, show the locked approved state, and click Download
+approved brief (Markdown).]
+
+SAY: Now the deployed dashboard. This cluster is new this run. Every brief claim
+carries a source ACN, and an uncited edit is blocked. Approval is the only exit:
+drafts, never decisions. The approved Markdown packet downloads here.
+
+[END]
+[Stop the screen recording from the macOS menu bar. Do not add picture-in-picture,
+callouts, sound effects or internal transitions to this scene.]

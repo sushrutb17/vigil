@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en" data-resolution="landscape">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>VIGIL — scene s5: The numbers</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #0d1117; }
+      body { font-family: "Inter", sans-serif; color: #e6edf3; }
+      #root { position: relative; width: 1920px; height: 1080px; overflow: hidden; }
+      #ground { position: absolute; inset: 0; background: #0d1117; }
+      [data-composition-id="main"] > div[data-composition-src] { position: absolute; inset: 0; }
+    </style>
+  </head>
+  <body>
+    <!--
+      PER-SCENE RENDER HOST — scene s5: The numbers (35s)
+
+      Mounts ONE scene so it renders as its own file, for assembling on an editor
+      timeline with your own voiceover and any extra scenes you add between.
+
+      NO AUDIO HERE ON PURPOSE. These are picture-only; the voiceover is recorded
+      over them in your editor. index.html remains the single full-length master
+      and is the file to keep in sync — this host only mounts, it owns no content.
+
+        npx hyperframes render -c scene-hosts/s5.html --quality high --output ../scenes/s5-s5-numbers.mp4
+    -->
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="35"
+      data-width="1920"
+      data-height="1080"
+      data-fps="30"
+    >
+      <div id="ground"></div>
+      <div
+        id="el-s5"
+        data-composition-id="s5-numbers"
+        data-composition-src="compositions/s5-numbers.html"
+        data-start="0"
+        data-duration="35"
+        data-track-index="1"
+      ></div>
+    </div>
+    <script>
+      window.__timelines = window.__timelines || {};
+      window.__timelines["main"] = gsap.timeline({ paused: true });
+    </script>
+  </body>
+</html>

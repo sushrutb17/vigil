@@ -4,6 +4,13 @@ Reference: Antonio Gulli, *Agentic Design Patterns: A Hands-On Guide to Building
 
 **Why this file exists:** VIGIL already implements ~14 of the 21 patterns. It does not have a design gap; it has a naming gap. This file closes the naming gap and fixes the language used in the README, the Devpost description and the video.
 
+> **Re-verified against the code 2026-08-29.** Six rows below asserted mechanisms
+> that were never built or were later cut (the `SequentialAgent` intake, the ADK
+> `ParallelAgent`, the Critic bounce loop, the cosine-prefiltered dedup judge, the
+> Pro call path, and full-corpus RAG). They are corrected in place rather than
+> deleted, because "we claimed this pattern and then measured that we had not built
+> it" is a more useful note to a future session than a clean table.
+
 **What this file must not do:** grow the build. `BUILD_PLAN.md` is ~48h against ~45h capacity and already carries a cut list. Nothing below is a new milestone. If a pattern is not already in the architecture, the correct action is a sentence in the writeup, not a new agent.
 
 ---
@@ -14,10 +21,10 @@ Legend — **✅ built** (in the architecture today) · **🏷️ name it** (bui
 
 | # | Pattern | Status | Where in VIGIL |
 |---|---|---|---|
-| 1 | Prompt Chaining | ✅ | `SequentialAgent`: Extractor (1a) → Dedup (1b) |
+| 1 | Prompt Chaining | ⛔ | **Corrected.** The `intake` `SequentialAgent` exists in `agents/definitions.py` but is never invoked — Extractor/Dedup were cut from the operational path. The real chain is deterministic: ingest → cluster → assess → coordinate → verify, sequenced by plain Python. Do not claim this pattern. |
 | 2 | Routing | 🏷️ | Stage 3→4 threshold gate against `config/frozen.yaml` — a deterministic router, currently described as a gate |
-| 3 | Parallelization | ✅ | Stage 4 `ParallelAgent`: Precedent ∥ Risk ∥ Brief Writer |
-| 4 | Reflection | ✅ | Critic reviews the brief, bounces once, cap enforced |
+| 3 | Parallelization | ✅ | Stage 4: Precedent ∥ Risk ∥ Brief Writer — via plain-Python `ThreadPoolExecutor`, **not** ADK's `ParallelAgent`. Say it that way; the reason (per-call failure isolation for 2-of-3 tolerance) is the stronger architecture point. |
+| 4 | Reflection | ✅ | Critic (LLM) reviews the assembled draft. **No bounce loop was built** — the deterministic gate runs unconditionally afterwards, which is a stronger guarantee than a re-ask, so a bounce would add a call without adding safety. Claim the review, not the loop. |
 | 5 | Tool Use | ✅ | Clustering, embeddings, citation regex as plain Python tools |
 | 6 | Planning | ⛔ | **Deliberate.** Orchestration is static Python, not a planner agent. See "Arguing the omissions" |
 | 7 | Multi-Agent Collaboration | ✅ | Coordinator + 3 sub-agents; 9 agents total |
@@ -25,18 +32,18 @@ Legend — **✅ built** (in the architecture today) · **🏷️ name it** (bui
 | 9 | Learning and Adaptation | ✅ | Offline extractor self-improvement loop; promotion gated on holdout + guards |
 | 10 | Model Context Protocol | ⛔ | Single-tenant batch system. Future work |
 | 11 | Goal Setting and Monitoring | 🏷️ | Risk score *is* the objective function; `agent_log/` is the monitor. Fold into the Evaluation story rather than claiming separately |
-| 12 | Exception Handling and Recovery | ✅ | Retries + backoff, one JSON repair attempt, `failed` records don't kill the batch, DEGRADED brief on sub-agent loss, resumable by ACN key |
+| 12 | Exception Handling and Recovery | ✅ | Retries + backoff, one JSON repair attempt, failed records don't kill the batch, DEGRADED brief on sub-agent loss (demonstrated live via `--fail-agent`). **"Resumable by ACN key" is overstated:** `put_report` uses `setdefault` so a re-run doesn't overwrite, but there is no skip-before-reprocessing. |
 | 13 | Human-in-the-Loop | ✅ | Terminal human gate. Nothing is ever auto-actioned |
-| 14 | Knowledge Retrieval (RAG) | ✅ | Precedent agent over the training corpus |
+| 14 | Knowledge Retrieval (RAG) | 🏷️ | Precedent retrieves over the **current batch**, filtered to the same component — not a full-corpus vector index. That was an explicit scope decision, so describe it accurately rather than as corpus-wide RAG. |
 | 15 | Inter-Agent Communication (A2A) | ⛔ | No cross-org agents. Future work |
-| 16 | Resource-Aware Optimization | 🏷️ | Flash everywhere except Brief Writer; batched embeddings; cosine pre-filter before the LLM dedup judge; budget alert at $50 |
+| 16 | Resource-Aware Optimization | ✅ | **Flash everywhere, including the Brief Writer** (Pro was specced, never used). The real cost story is architectural, and stronger: the Analyst runs once per *cluster* (23 calls, not 5,000), the Coordinator only for clusters past the threshold — a full 5k-report live run is **~39 calls**. No cosine-prefiltered dedup judge exists; that stage was cut. |
 | 17 | Reasoning Techniques | ➖ | Implicit in agent prompts. Don't claim it separately |
 | 18 | Guardrails / Safety | ✅ | Immutable `frozen.yaml`; mandatory ACN citation; `eval/guards.py` reward-hack tripwires; sacred `data/holdout/` |
 | 19 | Evaluation and Monitoring | ✅ | `EVAL.md` in full: ground-truth metrics, baselines, guards, runs ledger, `agent_log/` |
-| 20 | Prioritization | ✅ | Clusters ranked by severity × frequency × trend; only the top band escalates |
+| 20 | Prioritization | ✅ | Clusters ranked by a frozen weighted sum `0.5·severity + 0.3·frequency + 0.2·trend` (not a product); only clusters ≥ 0.60 escalate. |
 | 21 | Exploration and Discovery | 🏷️ | HDBSCAN surfacing **unnamed, emerging** hazards nobody queried for. This is the product thesis, currently written up as plumbing |
 
-**Score to quote: 14 built + 4 named = 18 of 21, with 3 omitted deliberately.** Do not round this up. The omissions are the credible part.
+**Score to quote after the 2026-08-29 correction: 13 built + 3 named = 16 of 21, with 5 omitted deliberately** (Planning, MCP, A2A, Reasoning, and now Prompt Chaining, whose `SequentialAgent` is never invoked). Do not round this up — and note that the honest number went *down* when we checked. The omissions are the credible part.
 
 ---
 
@@ -45,9 +52,15 @@ Legend — **✅ built** (in the architecture today) · **🏷️ name it** (bui
 Doc-only. No code. Highest return per minute in the whole build.
 
 ### 16 — Resource-Aware Optimization
-You do this well and never say it. Every model choice in VIGIL is a cost decision: Flash for eight agents, Pro reserved for the one job where prose quality is the deliverable; embeddings batched; a cheap cosine pre-filter so the LLM dedup judge only ever sees candidate pairs instead of the O(n²) cross-product. Judges reward visible cost discipline, and it is currently invisible.
+You do this well and never say it — but say the *true* version. Every agent runs on
+Flash, and the cost discipline is architectural rather than model-selection: the
+expensive stages sit behind the threshold router, so the Analyst runs once per
+cluster and the Coordinator only for clusters that actually escalate.
 
-> **Writeup line:** "Nine agents, one Pro call path. The dedup judge never sees the O(n²) pair space — a cosine pre-filter cuts it to candidates first. Whole demo corpus runs inside a $150 credit with the budget alarm never firing."
+> **Writeup line:** "A 5,000-report run costs 39 model calls, not 5,000. The Analyst
+> runs once per *cluster*; the parallel Coordinator only for the clusters that cross
+> a frozen threshold. Everything is Flash. The whole build fit inside a $150 credit
+> without the budget alarm firing."
 
 ### 21 — Exploration and Discovery
 Retrieval finds what you asked for; VIGIL finds what nobody asked for. That is the entire reason clustering is deterministic and unsupervised rather than a classifier over known hazard categories — a classifier can only ever return the taxonomy it was given, and emerging hazards are by definition outside it.
@@ -79,11 +92,11 @@ Omissions stated as decisions read as maturity. Omissions left silent read as ga
 |---|---|
 | README architecture section | The full coverage table above, plus the Planning omission paragraph |
 | Devpost description | The three free-win writeup lines, verbatim |
-| Devpost "findings & learnings" | The Planning trade-off + the caught-reward-hack story from `EVAL.md` |
+| Devpost "findings & learnings" | The Planning trade-off + the three real failures in `docs/DEVPOST_DRAFT.md`. **Not** the caught-reward-hack story — it never happened. |
 | Video (~4 min) | One sentence only: the Planning omission. It is the strongest architecture line available and it takes eight seconds |
 
 ---
 
 ## Standing rule
 
-This file changes vocabulary, not architecture. If a future session proposes building a new agent "to cover pattern N," that is scope creep against a fixed deadline — check it against the cut list in `BUILD_PLAN.md` first. The only candidate ever worth reconsidering is a genuine Routing branch (hazard type → Precedent query strategy), and only if the **Day-7 gate on Aug 27 clears ahead of schedule**.
+This file changes vocabulary, not architecture. If a future session proposes building a new agent "to cover pattern N," that is scope creep against a fixed deadline — check it against the cut list in `BUILD_PLAN.md` first. (The Aug 27 Day-7 gate this rule referenced has passed — see `docs/GATE_DECISION.md`; the full build shipped.) The only candidate ever worth reconsidering is a genuine Routing branch (hazard type → Precedent query strategy), and there is no longer time for it.

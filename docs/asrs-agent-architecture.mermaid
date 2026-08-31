@@ -1,56 +1,66 @@
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Helvetica,Arial,sans-serif","fontSize":"15px","clusterBkg":"#161b22","clusterBorder":"#30363d","lineColor":"#8b949e","edgeLabelBackground":"#0d1117","textColor":"#c9d1d9","secondaryTextColor":"#c9d1d9","tertiaryColor":"#161b22"}}}%%
 flowchart TB
-    SRC["Public NASA ASRS corpus<br/>Parquet reports"]:::data
-    ADK["Google ADK + Gemini<br/>Flash operational agents"]:::cloud
+    SCHED(["<b>Cloud Scheduler</b><br/>Mon 09:00 weekly — unattended"]):::infra
+    SRC["<b>NASA ASRS corpus</b> — 47,723 reports<br/>train 38,655 · val 4,295 · test LOCKED"]:::data
 
-    subgraph CLOUD["GOOGLE CLOUD"]
-        direction TB
-
-        subgraph BATCH["Cloud Run batch job — deterministic triage"]
-            direction LR
-            ING["Normalize coded fields<br/>and narratives"]:::tool
-            CLUSTER["TF-IDF + seeded HDBSCAN<br/>NO LLM CALLS"]:::tool
-            ANALYST["Cluster Analyst<br/>name + hazard statement"]:::agent
-            SCORE["Frozen risk policy<br/>severity × frequency × trend"]:::frozen
-            ROUTE{"Above fixed<br/>threshold?"}:::gate
-            ING --> CLUSTER --> ANALYST --> SCORE --> ROUTE
-        end
-
-        subgraph RESPONSE["Escalated clusters only — concurrent fan-out and verification"]
-            direction LR
-            COORD["Coordinator fan-out<br/>Precedent ∥ Risk ∥ Brief Writer"]:::agent
-            CRITIC["Critic Agent<br/>review assembled draft"]:::agent
-            CITE["Deterministic citation gate<br/>ACN format + provenance allow-list"]:::security
-            PERSIST["Persist reports, clusters,<br/>briefs, decisions, call logs"]:::tool
-            COORD --> CRITIC --> CITE --> PERSIST
-        end
-
-        DB[("Firestore<br/>state + escalation ledger<br/>per-agent observability")]:::mem
-        UI["Cloud Run Streamlit UI<br/>ranked review queue + briefs"]:::frontend
-
-        ROUTE -->|"severe"| COORD
-        ROUTE -->|"below threshold"| PERSIST
-        PERSIST --> DB --> UI
+    subgraph S12["STAGES 1–2 · Deterministic — no LLM call reaches this code"]
+        direction LR
+        ING["<b>Ingest</b><br/>NASA's own coded<br/>columns → typed record"]:::tool
+        EMB["<b>Embeddings + HDBSCAN</b><br/>seeded, reproducible"]:::tool
+        ING --> EMB
     end
 
-    HUMAN["HUMAN TERMINAL GATE<br/>approve or reject<br/>system never actions"]:::human
-    OFFLINE["PLANNED OFFLINE EXTRACTOR LOOP<br/>validation revisions → guard metrics → LOCKED holdout"]:::planned
+    subgraph S3["STAGE 3 · Assess — one Analyst call per cluster, not per report"]
+        direction LR
+        CA["<b>Analyst Agent</b> (LLM)<br/>names the hazard, writes prose<br/><i>does not compute risk</i>"]:::agent
+        RISK["<b>Risk scoring</b> — deterministic code<br/>0.5·severity + 0.3·frequency + 0.2·trend"]:::tool
+        CA --> RISK
+    end
 
-    SRC --> ING
-    ADK -.-> ANALYST
-    ADK -.-> COORD
-    ADK -.-> CRITIC
-    UI --> HUMAN
-    HUMAN -->|"approved / rejected"| DB
-    DB -.->|"negative examples"| OFFLINE
+    GATE{"<b>total ≥ 0.60?</b>"}:::gate
 
-    classDef agent fill:#173e63,stroke:#58a6d8,stroke-width:2px,color:#ffffff
-    classDef tool fill:#244c2e,stroke:#63b573,stroke-width:2px,color:#ffffff
-    classDef data fill:#3d4650,stroke:#9da7b1,stroke-width:2px,color:#ffffff
-    classDef gate fill:#684b13,stroke:#e0ad45,stroke-width:2px,color:#ffffff
-    classDef human fill:#691f25,stroke:#e05d68,stroke-width:3px,color:#ffffff
-    classDef mem fill:#3f2b67,stroke:#9d7dde,stroke-width:2px,color:#ffffff
-    classDef frozen fill:#4b3d3d,stroke:#df6a6a,stroke-width:2px,color:#ffffff
-    classDef security fill:#3b3558,stroke:#9f8de0,stroke-width:2px,color:#ffffff
-    classDef frontend fill:#174b55,stroke:#4fb8c5,stroke-width:2px,color:#ffffff
-    classDef cloud fill:#243d62,stroke:#6f9edb,stroke-width:2px,color:#ffffff
-    classDef planned fill:#50545b,stroke:#a7adb5,stroke-width:2px,stroke-dasharray:6 4,color:#ffffff
+    subgraph S4["STAGE 4 · Coordinate — escalated clusters only, plain-Python fan-out"]
+        direction LR
+        P1["<b>Precedent</b>"]:::agent
+        P2["<b>Risk Explainer</b>"]:::agent
+        P3["<b>Brief Writer</b>"]:::agent
+    end
+    DEG{"<b>survivors?</b>"}:::gate
+
+    subgraph S5["STAGE 5 · Verify, then stop"]
+        CRIT["<b>Critic Agent</b> (LLM)<br/>removes uncited claims.<br/>A 2-of-3 brief is stamped <b>DEGRADED</b>,<br/>re-asserted by code if the Critic drops it."]:::agent
+        HARD["<b>strip_uncited_claims</b> — deterministic<br/>ALWAYS runs last, even if the Critic died.<br/>Validates <i>provenance</i>, not citation shape:<br/>a well-formed ACN from no real report is stripped."]:::tool
+        CRIT --> HARD
+    end
+
+    DET["<b>Deterministic brief template</b><br/>the cluster is never dropped"]:::tool
+    HUMAN["<b>HUMAN APPROVAL — terminal</b><br/>VIGIL drafts and recommends.<br/>It never sends, files, or actions."]:::human
+    MEM[("<b>Firestore</b><br/>clusters · escalations · rejections<br/>agent_log: model, tokens, latency")]:::mem
+    FROZEN["<b>config/frozen.yaml — FROZEN</b><br/>thresholds loaded read-only.<br/>No agent may retune them,<br/>including the Evaluator."]:::frozen
+
+    SCHED --> SRC --> S12
+    EMB --> CA
+    RISK --> GATE
+    GATE -->|"escalate"| S4
+    GATE -->|"below threshold"| MEM
+    P1 --> DEG
+    P2 --> DEG
+    P3 --> DEG
+    DEG -->|"3 of 3"| CRIT
+    DEG -->|"2 of 3"| CRIT
+    DEG -->|"< 2"| DET
+    DET --> HARD
+    HARD --> HUMAN
+    HUMAN --> MEM
+    MEM -.->|"member-set Jaccard > 0.6 —<br/>already alerted, stay quiet"| CA
+    HUMAN -.->|"rejected = negative example"| MEM
+    FROZEN -.->|"read-only"| RISK
+
+    classDef agent fill:#12365a,stroke:#58a6ff,stroke-width:2px,color:#e6edf3
+    classDef tool fill:#123d2a,stroke:#3fb950,stroke-width:2px,color:#e6edf3
+    classDef data fill:#21262d,stroke:#8b949e,stroke-width:2px,color:#e6edf3
+    classDef gate fill:#4d3800,stroke:#d29922,stroke-width:2px,color:#e6edf3
+    classDef human fill:#5c1a1a,stroke:#f85149,stroke-width:3px,color:#e6edf3
+    classDef mem fill:#2d2159,stroke:#a371f7,stroke-width:2px,color:#e6edf3
+    classDef frozen fill:#30363d,stroke:#f85149,stroke-width:2px,color:#e6edf3
+    classDef infra fill:#0f3d3d,stroke:#39d3d3,stroke-width:2px,color:#e6edf3

@@ -1,0 +1,110 @@
+# VIGIL theme. Declarative only — no CSS injection anywhere in ui/streamlit_app.py.
+#
+# Why this file exists: without it Streamlit serves its stock #FF4B4B primary and
+# Source Sans defaults, which is instantly recognizable as an unthemed prototype
+# and undersells the pipeline behind it.
+#
+# The governing design rule here is that COLOR CARRIES MEANING, NOTHING ELSE.
+# This is a triage tool: the one thing a reviewer must never mis-read is which
+# hazard is escalated. So the primary color is achromatic ink — buttons, focus
+# rings and links are all near-black — and the only saturated colors that appear
+# on the page are semantic:
+#
+#   red    escalation / blocked approval   (st.error, ⚠ clusters)
+#   orange caution
+#   green  approved                        (st.success)
+#
+# A branded accent on the Approve button would compete with the escalation
+# badge for the reviewer's attention, and attention is the entire product. That
+# is also why there is no decorative blue or indigo: an accent that means
+# nothing is noise on a page whose job is ranking severity.
+#
+# Neutrals are warm (stone, not slate). Cool blue-grays are the house style of
+# generic dashboards; a warm paper gray reads closer to a printed institutional
+# safety document, which is what this is.
+#
+# Ships to Cloud Run automatically: the Dockerfile does `COPY . .` and neither
+# .gcloudignore nor .dockerignore excludes dotfiles. Nothing in infra/deploy.sh
+# needs to change. The CMD's --server.* / --browser.* flags are separate
+# sections and do not collide with [theme]; CLI flags win regardless.
+#
+# NOTE: only [theme] is defined, with no [theme.dark] counterpart, so the app is
+# LOCKED TO LIGHT and the settings-menu light/dark toggle disappears. That is
+# deliberate — a judge whose OS prefers dark mode would otherwise see a
+# rendering nobody reviewed, and the demo capture has to match the live URL.
+# Adding a [theme.dark] block later restores the toggle.
+
+[theme]
+base = "light"
+
+# --- Core surfaces -----------------------------------------------------------
+# Layered lightest-to-darkest: page, then widget/secondary, then borders.
+primaryColor = "#26241F"            # Warm ink. Buttons, focus rings, active state.
+backgroundColor = "#FDFDFC"         # Warm near-white; pure #FFF reads clinical.
+secondaryBackgroundColor = "#F2F1ED" # Widget fills, st.metric, expanders.
+codeBackgroundColor = "#F5F4F1"
+textColor = "#1A1917"               # Warm near-black. ~16:1 on the page ground.
+borderColor = "#E3E1DB"
+
+# Links are ink-colored, so the underline is doing all the affordance work and
+# cannot be switched off — color alone would leave them indistinguishable from
+# body text.
+linkColor = "#26241F"
+linkUnderline = true
+
+# --- Semantic palette --------------------------------------------------------
+# Deliberately desaturated relative to the usual Tailwind defaults: signal-flag
+# tones rather than candy. All clear WCAG AA (>=4.5:1) against the page ground.
+redColor = "#B3261E"                # Escalation, blocked approval.
+orangeColor = "#A8620A"             # Caution.
+yellowColor = "#8A6A00"
+greenColor = "#2E6B4F"              # Approved.
+grayColor = "#6B6862"
+blueColor = "#33566E"               # Muted slate — informational only, never brand.
+violetColor = "#5B4B6B"
+
+# --- Charts ------------------------------------------------------------------
+# Leads with ink so the single-series hazard-history line in
+# _render_hazard_history reads as data, not as a branded accent.
+chartCategoricalColors = ["#26241F", "#6B6862", "#A8620A", "#2E6B4F", "#B3261E", "#33566E", "#9A9691"]
+
+# --- Typography --------------------------------------------------------------
+# IBM Plex, not Inter: a technical superfamily whose sans and mono are designed
+# together. The mono is load-bearing here — the approved brief renders through
+# st.code(..., language="markdown"), so it is what a judge actually reads.
+font = "'IBM Plex Sans':https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+codeFont = "'IBM Plex Mono':https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap"
+baseFontSize = 15
+baseFontWeight = 400
+codeFontSize = "0.875rem"
+codeTextColor = "#26241F"
+
+# A tighter heading ramp than Streamlit's default. The stock h1 is oversized for
+# a one-word title ("VIGIL") sitting above a dense metric row.
+headingFontSizes = ["28px", "21px", "17px", "15px", "14px", "13px"]
+headingFontWeights = [600, 600, 600, 600, 500, 500]
+
+# --- Shape -------------------------------------------------------------------
+# 4px, not the fashionable 8-12px: a small radius reads precise and instrument-
+# like. Widget borders stay on — on a light ground, removing them leaves inputs
+# floating with no edge.
+baseRadius = "4px"
+buttonRadius = "4px"
+showWidgetBorder = true
+showSidebarBorder = true
+
+dataframeBorderColor = "#E3E1DB"
+dataframeHeaderBackgroundColor = "#F2F1ED"
+
+# --- Sidebar -----------------------------------------------------------------
+# One step down from the page ground so the queue selectors read as chrome
+# rather than content, without going to a heavy dark rail.
+[theme.sidebar]
+backgroundColor = "#F7F6F3"
+secondaryBackgroundColor = "#EFEDE8"
+codeBackgroundColor = "#EFEDE8"
+textColor = "#1A1917"
+borderColor = "#E3E1DB"
+primaryColor = "#26241F"
+dataframeHeaderBackgroundColor = "#EFEDE8"
+dataframeBorderColor = "#E3E1DB"
