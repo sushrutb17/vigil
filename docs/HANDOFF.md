@@ -18,6 +18,56 @@ Entry format:
 
 ---
 
+## 2026-08-30 22:02 ET — Claude acct #1 (Streamlit UI theme, Tier 1)
+- Last commit: this commit — `Record the UI theme in PHASES and hand off` (theme
+  itself is `ffb3936`, `Theme the Streamlit UI so it stops reading as an unthemed
+  prototype`)
+- Finished:
+  - Found the UI had **no `.streamlit/config.toml` at all**, so Cloud Run was
+    serving stock Streamlit — the `#FF4B4B` primary and Source Sans defaults.
+    That single absence, not the app code, was doing most of the "looks crude"
+    damage.
+  - Added the theme as **declarative config only — no CSS injection, zero Python
+    changed**. 117 tests pass, ruff clean, and every `ui/streamlit_app.py:NNN`
+    line reference elsewhere in the docs still resolves (checked
+    `VIDEO_RUNBOOK.md:45` → `:131`, still lands on `new_this_run`).
+  - Design rule: colour carries meaning and nothing else. Primary is achromatic
+    ink `#26241F`; the only saturated colours are semantic (red = escalation /
+    blocked approval, green = approved), so nothing competes with the escalation
+    badge for the reviewer's attention. Warm stone neutrals, IBM Plex Sans/Mono,
+    4px radius. **Locked to light** — only `[theme]` is defined, no
+    `[theme.dark]`, so the mode toggle is gone by design.
+  - Verified in-browser with Playwright/Chromium against the real artifact, not
+    just by reading the config: theme renders, IBM Plex loads, and the citation
+    gate's red blocked state was triggered live by splitting a cited paragraph.
+    No Firestore writes occurred (`GOOGLE_CLOUD_PROJECT` unset locally →
+    `MemoryStore`, and the approval was blocked anyway).
+- Next action: **`git push origin main` — the remote is 7 commits behind**, not
+  one. It is missing this theme plus the whole video/narration arc (`996ecf7`,
+  `448ca93`, `b21f6a6`, `f04fb7e`, `edffd4a`, `e735af0`). Then confirm the
+  in-flight `gcloud run deploy vigil-ui --source .` landed, record the new
+  revision id in `PHASES.md` line ~115, and capture scene 3 against the themed
+  URL.
+- Watch out:
+  - The **live URL served the unthemed build** at the time of writing — revision
+    `vigil-ui-00004-vsw` predates `ffb3936`. Do not capture scene 3 until the
+    redeploy is confirmed, or the video and the deliverable URL will disagree.
+  - `--source .` uploads the local working tree, **not GitHub**, so the deploy
+    and the push are independent; neither blocks the other.
+  - Fonts are fetched from Google Fonts by the browser at runtime, not baked
+    into the image. A capture made on restricted network egress falls back to
+    system sans **silently** — eyeball the type before recording.
+  - The Dockerfile's `COPY . .` sits above `pip install`, so even a 110-line TOML
+    invalidates the dependency layer and forces a full reinstall. Slow deploy is
+    expected, not a fault.
+  - **Tier 2 was deliberately not done** (user called the current state good
+    enough): facets still render as a collapsed `st.json` `{...}` blob at
+    `ui/streamlit_app.py:339` — now the most conspicuously unfinished element on
+    the page — and ⚠/🆕/📌 emoji are still glued into selectbox labels instead of
+    `st.badge`/Material Symbols. ~20 minutes if it is ever wanted. Note
+    `_sorted_choices` uses the decorated label as its dict key, so decoupling
+    display from lookup is a small real refactor, not a pure find-and-replace.
+
 ## 2026-08-30 17:16 ET — Codex (scene-4 overlay + split narration pack)
 - Last commit: this commit — `Split video narration and fix scene four overlay`
 - Finished:
