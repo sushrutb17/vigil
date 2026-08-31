@@ -9,6 +9,9 @@ Run, with the batch pipeline running as a Cloud Run job that persists reports,
 clusters, escalations, and a per-agent call log (model, tokens, latency) to
 Firestore.
 
+**Demo video:** [VIGIL — All Things Agentic Hackathon](https://youtu.be/kGiqvn-vrv0)
+(3:50).
+
 ## The problem
 
 NASA's Aviation Safety Reporting System takes in over 100,000 confidential
