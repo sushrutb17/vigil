@@ -1,3 +1,3 @@
-Okay, let's look at the numbers now. First, we tested whether each claim points to a real report. The system caught every missing or fake citation while keeping every valid one. That matters: deleting everything would also look perfect.
+Okay, let's look at the results. The citation check worked as intended: it caught every test claim with a missing or fake report number, and it kept the valid ones.
 
-Clustering was weaker. Purity—how closely groups matched NASA's categories—was thirty point one percent. Eighty-three point seven percent could not be grouped confidently, more than double our forty percent limit. We show the failure instead of tuning until the test passed.
+The grouping test did not go as well. The groups lined up with NASA's categories only about thirty percent, and eighty-four percent of reports could not be grouped at all. That is more than twice our limit. We are showing this because the clustering still needs work.

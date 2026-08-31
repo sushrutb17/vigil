@@ -10,7 +10,7 @@ rendered by HyperFrames.
 | 2 — Architecture | 30s | 72 | `scene-02-architecture.txt` | 27–29s | `seg2.wav` |
 | 3 — Live execution | 85s | 173 | `scene-03-live.txt` | 80–83s | `seg3.wav` |
 | 4 — Failure tolerance | 20s | 41 | `scene-04-failure.txt` | 18–19s | `seg4.wav` |
-| 5 — Results | 35s | 79 | `scene-05-results.txt` | 32–34s | `seg5.wav` |
+| 5 — Results | 35s | 77 | `scene-05-results.txt` | 32–34s | `seg5.wav` |
 | 6 — Close | 34s | 75 | `scene-06-close.txt` | 29–31s | `seg6.wav` |
 
 Recording setup:
